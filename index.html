@@ -3,513 +3,641 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XML Datumformaterare</title>
+    <title>XML Date Formatter Pro</title>
     
-    <!-- JSZip via CDN för att kunna skapa ZIP-filer på klientsidan -->
+    <!-- JSZip via CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
     <style>
+        /* --- CSS Variables & Theming --- */
         :root {
-            /* Ljust tema (Standard) */
-            --bg-color: #f3f4f6;
-            --card-bg: #ffffff;
-            --text-main: #111827;
-            --text-muted: #6b7280;
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --border: #e5e7eb;
-            --dropzone-bg: #f9fafb;
-            --log-bg: #1f2937;
-            --log-text: #e5e7eb;
-            --success: #34d399;
-            --error: #ef4444;
-            --info: #60a5fa;
-            --disabled: #9ca3af;
-        }[data-theme="dark"] {
-            /* Mörkt tema */
-            --bg-color: #111827;
-            --card-bg: #1f2937;
-            --text-main: #f9fafb;
-            --text-muted: #9ca3af;
-            --primary: #3b82f6;
-            --primary-hover: #60a5fa;
-            --border: #374151;
-            --dropzone-bg: #374151;
+            --bg-body: #f5f5f7; /* Apple light gray */
+            --bg-card: #ffffff;
+            --text-main: #1d1d1f;
+            --text-muted: #86868b;
+            --accent: #0071e3; /* Apple blue */
+            --accent-hover: #0077ed;
+            --border: #d2d2d7;
+            --dropzone-bg: #fafafa;
+            --dropzone-hover: #f0f8ff;
+            --log-bg: #1e1e1e;
+            --log-text: #d4d4d4;
+            --success: #34c759;
+            --error: #ff3b30;
+            --info: #32ade6;
+            --disabled-bg: #e5e5ea;
+            --disabled-text: #aeaeb2;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --radius-card: 18px;
+            --radius-btn: 10px;
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #000000;
+            --bg-card: #1c1c1e;
+            --text-main: #f5f5f7;
+            --text-muted: #98989d;
+            --accent: #0a84ff;
+            --accent-hover: #409cff;
+            --border: #38383a;
+            --dropzone-bg: #2c2c2e;
+            --dropzone-hover: #3a3a3c;
             --log-bg: #000000;
-            --log-text: #d1d5db;
-            --success: #10b981;
-            --error: #f87171;
-            --info: #3b82f6;
-            --disabled: #4b5563;
+            --log-text: #e5e5ea;
+            --success: #32d74b;
+            --error: #ff453a;
+            --info: #64d2ff;
+            --disabled-bg: #3a3a3c;
+            --disabled-text: #636366;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
+        /* --- Reset & Base --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
         body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
+            font-family: var(--font-stack);
+            background-color: var(--bg-body);
             color: var(--text-main);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             padding: 20px;
-            transition: background-color 0.3s ease, color 0.3s ease;
+            transition: background-color 0.4s ease, color 0.4s ease;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .container {
+        /* --- Layout --- */
+        .app-container {
             width: 100%;
-            max-width: 800px;
+            max-width: 760px;
         }
 
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            padding: 0 10px;
         }
 
         h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
         }
 
-        .controls {
-            display: flex;
-            gap: 10px;
-        }
+        .controls { display: flex; gap: 12px; }
 
-        .controls button {
-            background-color: var(--card-bg);
+        .icon-btn {
+            background: var(--bg-card);
             color: var(--text-main);
             border: 1px solid var(--border);
-            padding: 8px 12px;
-            font-size: 0.875rem;
-            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border-radius: 20px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
 
-        .controls button:hover {
-            background-color: var(--dropzone-bg);
+        .icon-btn:hover {
+            background: var(--dropzone-bg);
+            transform: translateY(-1px);
         }
 
         .card {
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            transition: background-color 0.3s ease;
+            background-color: var(--bg-card);
+            border-radius: var(--radius-card);
+            padding: 40px;
+            box-shadow: var(--shadow);
+            transition: background-color 0.4s ease, box-shadow 0.4s ease;
         }
 
+        /* --- Dropzone --- */
         .dropzone {
             border: 2px dashed var(--border);
-            border-radius: 8px;
-            padding: 40px 20px;
+            border-radius: 14px;
+            padding: 50px 20px;
             text-align: center;
-            cursor: pointer;
             background-color: var(--dropzone-bg);
-            transition: all 0.2s ease;
-            margin-bottom: 20px;
-            user-select: none;
+            transition: all 0.3s ease;
+            margin-bottom: 24px;
+            position: relative;
         }
 
-        .dropzone:hover, .dropzone.dragover {
-            border-color: var(--primary);
-            background-color: rgba(59, 130, 246, 0.05);
+        .dropzone.dragover {
+            border-color: var(--accent);
+            background-color: var(--dropzone-hover);
+            transform: scale(1.01);
         }
+
+        .dropzone * { pointer-events: none; } /* Prevent drag flicker */
+        .dropzone .btn-upload { pointer-events: auto; } /* Re-enable for button */
 
         .dropzone svg {
-            margin-bottom: 10px;
-            color: var(--primary);
+            color: var(--accent);
+            margin-bottom: 16px;
+            width: 54px;
+            height: 54px;
         }
 
-        .progress-container {
+        .dropzone h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .dropzone p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+
+        .btn-upload {
+            background-color: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 10px 24px;
+            border-radius: var(--radius-btn);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-upload:hover {
+            background-color: var(--accent);
+            color: #fff;
+        }
+
+        /* --- Progress & Status --- */
+        .progress-wrapper { margin-bottom: 24px; }
+        
+        .progress-track {
             height: 8px;
             background-color: var(--border);
             border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
-        .progress-bar {
+        .progress-fill {
             height: 100%;
             width: 0%;
-            background-color: var(--primary);
-            transition: width 0.3s ease;
+            background-color: var(--accent);
+            border-radius: 4px;
+            transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
 
         .status-text {
-            font-size: 0.875rem;
+            font-size: 0.95rem;
             color: var(--text-muted);
-            margin-bottom: 20px;
             text-align: center;
             font-weight: 500;
         }
 
+        /* --- Action Buttons --- */
         .actions {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 30px;
         }
 
-        .actions button {
+        .btn-main {
             flex: 1;
-            padding: 12px 20px;
+            padding: 14px 20px;
             border: none;
-            border-radius: 6px;
-            font-size: 1rem;
+            border-radius: var(--radius-btn);
+            font-size: 1.05rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
-            background-color: var(--primary);
-            color: white;
+            transition: all 0.2s ease;
+            background-color: var(--accent);
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
         }
 
-        .actions button:hover:not(:disabled) {
-            background-color: var(--primary-hover);
+        .btn-main:hover:not(:disabled) {
+            background-color: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
         }
 
-        .actions button:disabled {
-            background-color: var(--disabled);
+        .btn-main:active:not(:disabled) { transform: translateY(0); }
+
+        .btn-main:disabled {
+            background-color: var(--disabled-bg);
+            color: var(--disabled-text);
             cursor: not-allowed;
-            opacity: 0.7;
+            box-shadow: none;
         }
 
-        .logs-section {
-            margin-top: 30px;
+        /* --- Tooltip Logic --- */
+        .tooltip-container {
+            flex: 1;
+            display: flex;
+            position: relative;
         }
+        
+        .tooltip-container .btn-main { width: 100%; }
 
-        .logs-section h3 {
-            font-size: 1rem;
+        .tooltip-container[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
             margin-bottom: 10px;
+            opacity: 0;
+            animation: fadeIn 0.2s forwards 0.1s;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+        }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        /* --- Logs --- */
+        .logs-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
             color: var(--text-main);
         }
 
-        .logs {
+        .logs-window {
             background-color: var(--log-bg);
             color: var(--log-text);
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.85rem;
-            padding: 15px;
-            border-radius: 6px;
-            height: 220px;
+            font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+            font-size: 1rem; /* Större text enligt önskemål */
+            padding: 20px;
+            border-radius: 12px;
+            height: 260px;
             overflow-y: auto;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+            line-height: 1.5;
         }
 
-        .log-line { margin-bottom: 4px; line-height: 1.4; }
+        .log-entry { margin-bottom: 6px; word-break: break-all; }
+        .log-time { color: #888; margin-right: 8px; font-size: 0.9em; }
         .log-error { color: var(--error); }
         .log-success { color: var(--success); }
         .log-info { color: var(--info); }
 
-        /* Tillgänglighet */
-        button:focus-visible, input:focus-visible {
-            outline: 2px solid var(--primary);
-            outline-offset: 2px;
-        }
+        /* --- Scrollbar styling för loggen --- */
+        .logs-window::-webkit-scrollbar { width: 8px; }
+        .logs-window::-webkit-scrollbar-track { background: transparent; }
+        .logs-window::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        .logs-window::-webkit-scrollbar-thumb:hover { background: #777; }
 
-        /* Mobilanpassning */
-        @media (max-width: 600px) {
-            header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 15px;
-            }
-            .controls {
-                width: 100%;
-                justify-content: space-between;
-            }
-            .controls button {
-                flex: 1;
-            }
-            .actions {
-                flex-direction: column;
-            }
-            .actions button {
-                width: 100%;
-            }
+        /* --- Responsiveness --- */
+        @media (max-width: 650px) {
+            .card { padding: 24px; }
+            .actions { flex-direction: column; }
+            header { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .controls { width: 100%; justify-content: space-between; }
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="app-container">
         <header>
-            <h1 id="titleText">XML Datumformaterare</h1>
+            <h1 id="ui-title">XML Date Formatter</h1>
             <div class="controls">
-                <button id="langToggle" onclick="toggleLanguage()">🇬🇧 English</button>
-                <button id="themeToggle" onclick="toggleTheme()">🌙 Mörkt</button>
+                <button class="icon-btn" id="btn-lang" onclick="toggleLanguage()">🇬🇧 English</button>
+                <button class="icon-btn" id="btn-theme" onclick="toggleTheme()">🌙 Mörkt</button>
             </div>
         </header>
         
         <main class="card">
-            <div id="dropzone" class="dropzone">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <!-- Dropzone -->
+            <div class="dropzone" id="dropzone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
-                <p id="dropzoneText">Dra och släpp XML-filer här eller klicka för att välja</p>
+                <h3 id="ui-drop-title">Dra och släpp XML-filer här</h3>
+                <p id="ui-drop-sub">eller klicka på knappen nedan för att bläddra</p>
+                <button class="btn-upload" id="ui-btn-upload" onclick="document.getElementById('fileInput').click()">Välj filer</button>
                 <input type="file" id="fileInput" multiple accept=".xml" style="display: none;">
             </div>
             
-            <div class="progress-container">
-                <div class="progress-bar" id="progressBar"></div>
+            <!-- Progress -->
+            <div class="progress-wrapper">
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+                <p class="status-text" id="statusText">Väntar på filer...</p>
             </div>
-            <p id="statusText" class="status-text">Väntar på filer...</p>
             
+            <!-- Actions -->
             <div class="actions">
-                <button id="processBtn" onclick="processFiles()" disabled>Bearbeta Filer</button>
-                <button id="downloadIndBtn" onclick="downloadIndividually()" disabled>Ladda ner separat</button>
-                <button id="downloadZipBtn" onclick="downloadZip()" disabled>Ladda ner som ZIP</button>
+                <button class="btn-main" id="btn-process" onclick="processFiles()" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <span id="ui-btn-process">Bearbeta Filer</span>
+                </button>
+                
+                <button class="btn-main" id="btn-download-ind" onclick="downloadIndividually()" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span id="ui-btn-download-ind">Ladda ner</span>
+                </button>
+                
+                <div class="tooltip-container" id="zip-tooltip-wrapper">
+                    <button class="btn-main" id="btn-download-zip" onclick="downloadZip()" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                        <span id="ui-btn-download-zip">Ladda ner som ZIP</span>
+                    </button>
+                </div>
             </div>
             
-            <div class="logs-section">
-                <h3 id="logsTitle">Händelselogg</h3>
-                <div id="logs" class="logs"></div>
-            </div>
+            <!-- Logs -->
+            <h3 class="logs-header" id="ui-logs-title">Händelselogg</h3>
+            <div class="logs-window" id="logsWindow"></div>
         </main>
     </div>
 
     <script>
-        // --- Översättningar (i18n) ---
+        // --- State Management ---
+        let state = {
+            lang: 'sv',
+            theme: 'light',
+            filesToProcess: [],
+            processedFiles:[]
+        };
+
+        // --- Translations ---
         const i18n = {
             sv: {
-                title: "XML Datumformaterare",
-                dropzone: "Dra och släpp XML-filer här eller klicka för att välja",
-                processBtn: "Bearbeta Filer",
-                downloadIndBtn: "Ladda ner separat",
-                downloadZipBtn: "Ladda ner som ZIP",
+                title: "XML Date Formatter",
+                dropTitle: "Dra och släpp XML-filer här",
+                dropSub: "eller klicka på knappen nedan för att bläddra",
+                btnUpload: "Välj filer",
+                btnProcess: "Bearbeta Filer",
+                btnDownloadSingle: "Ladda ner",
+                btnDownloadMulti: "Ladda ner separat",
+                btnDownloadZip: "Ladda ner som ZIP",
                 logsTitle: "Händelselogg",
                 langToggle: "🇬🇧 English",
                 themeDark: "🌙 Mörkt",
                 themeLight: "☀️ Ljust",
                 statusWaiting: "Väntar på filer...",
                 statusReady: "Redo att bearbeta {0} fil(er).",
-                statusProcessing: "Bearbetar...",
-                statusDone: "Klar!",
-                logStarted: "Startade bearbetning av filer...",
-                logFilesSelected: "{0} XML-fil(er) valda. Redo för bearbetning.",
-                logFileProcessed: "Bearbetad: {0} -> {1}",
-                logFinished: "Alla filer har bearbetats framgångsrikt.",
+                statusProcessing: "Bearbetar fil {0} av {1}...",
+                statusDone: "Klar! {0} fil(er) bearbetade.",
+                logInit: "System redo. Vänligen välj filer för att börja.",
+                logFilesSelected: "{0} XML-fil(er) inlästa. Redo för bearbetning.",
+                logStarted: "Startar bearbetning...",
+                logProcessed: "Klar: {0} -> {1}",
                 logError: "Fel vid bearbetning av {0}: {1}",
-                logNoFiles: "Inga giltiga XML-filer valda.",
-                logZipGenerating: "Skapar ZIP-fil...",
+                logFinished: "Alla filer har bearbetats framgångsrikt.",
+                logZipStart: "Skapar ZIP-arkiv...",
                 logZipDone: "ZIP-fil skapad och nedladdning startad.",
-                logDownloadIndStarted: "Startar nedladdning av enskilda filer...",
-                logDownloadIndDone: "Alla filer har laddats ner.",
+                logDownloadStart: "Startar nedladdning...",
+                logDownloadDone: "Nedladdning slutförd.",
+                zipTooltip: "Detta alternativ stöds endast för flera filer.",
                 zipFilename: "Bearbetade_XML_Filer.zip"
             },
             en: {
                 title: "XML Date Formatter",
-                dropzone: "Drag and drop XML files here or click to select",
-                processBtn: "Process Files",
-                downloadIndBtn: "Download Individually",
-                downloadZipBtn: "Download as ZIP",
+                dropTitle: "Drag and drop XML files here",
+                dropSub: "or click the button below to browse",
+                btnUpload: "Choose files",
+                btnProcess: "Process Files",
+                btnDownloadSingle: "Download",
+                btnDownloadMulti: "Download Separately",
+                btnDownloadZip: "Download as ZIP",
                 logsTitle: "Event Log",
                 langToggle: "🇸🇪 Svenska",
                 themeDark: "🌙 Dark",
                 themeLight: "☀️ Light",
                 statusWaiting: "Waiting for files...",
                 statusReady: "Ready to process {0} file(s).",
-                statusProcessing: "Processing...",
-                statusDone: "Done!",
-                logStarted: "Started processing files...",
-                logFilesSelected: "{0} XML file(s) selected. Ready for processing.",
-                logFileProcessed: "Processed: {0} -> {1}",
-                logFinished: "All files processed successfully.",
+                statusProcessing: "Processing file {0} of {1}...",
+                statusDone: "Done! {0} file(s) processed.",
+                logInit: "System ready. Please select files to begin.",
+                logFilesSelected: "{0} XML file(s) loaded. Ready to process.",
+                logStarted: "Starting processing...",
+                logProcessed: "Done: {0} -> {1}",
                 logError: "Error processing {0}: {1}",
-                logNoFiles: "No valid XML files selected.",
-                logZipGenerating: "Generating ZIP file...",
+                logFinished: "All files processed successfully.",
+                logZipStart: "Generating ZIP archive...",
                 logZipDone: "ZIP file generated and download started.",
-                logDownloadIndStarted: "Starting individual file downloads...",
-                logDownloadIndDone: "All files downloaded.",
+                logDownloadStart: "Starting download...",
+                logDownloadDone: "Download completed.",
+                zipTooltip: "This option is only supported for multiple files.",
                 zipFilename: "Processed_XML_Files.zip"
             }
         };
 
-        // --- Tillstånd (State) ---
-        let currentLang = 'sv';
-        let currentTheme = 'light';
-        let filesToProcess = [];
-        let processedFiles =[]; // Array av objekt: { name: string, content: string }
+        const t = (key) => i18n[state.lang][key];
 
-        // --- Hjälpfunktioner ---
-        function t(key) {
-            return i18n[currentLang][key];
+        // --- DOM Elements ---
+        const els = {
+            dropzone: document.getElementById('dropzone'),
+            fileInput: document.getElementById('fileInput'),
+            progressBar: document.getElementById('progressBar'),
+            statusText: document.getElementById('statusText'),
+            btnProcess: document.getElementById('btn-process'),
+            btnDownloadInd: document.getElementById('btn-download-ind'),
+            btnDownloadZip: document.getElementById('btn-download-zip'),
+            zipTooltipWrapper: document.getElementById('zip-tooltip-wrapper'),
+            logsWindow: document.getElementById('logsWindow'),
+            btnTheme: document.getElementById('btn-theme'),
+            btnLang: document.getElementById('btn-lang')
+        };
+
+        // --- Initialization ---
+        function init() {
+            updateTextUI();
+            log(t('logInit'), 'info');
+            setupDragAndDrop();
         }
 
-        function formatBytes(bytes, decimals = 2) {
-            if (!+bytes) return '0 Bytes';
-            const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes =['Bytes', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-        }
-
-        function logMessage(msg, type = 'info') {
-            const logsDiv = document.getElementById('logs');
-            const time = new Date().toLocaleTimeString();
-            const logLine = document.createElement('div');
-            logLine.className = `log-line log-${type}`;
-            logLine.textContent = `[${time}] ${msg}`;
-            logsDiv.appendChild(logLine);
-            logsDiv.scrollTop = logsDiv.scrollHeight; // Auto-scroll till botten
-        }
-
-        function updateProgress(percent) {
-            document.getElementById('progressBar').style.width = percent + '%';
-        }
-
-        // --- UI & Tema ---
+        // --- UI & Theming ---
         function toggleTheme() {
-            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', currentTheme);
-            updateThemeBtnText();
-        }
-
-        function updateThemeBtnText() {
-            const btn = document.getElementById('themeToggle');
-            btn.innerText = currentTheme === 'light' ? t('themeDark') : t('themeLight');
+            state.theme = state.theme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', state.theme);
+            els.btnTheme.innerText = state.theme === 'light' ? t('themeDark') : t('themeLight');
         }
 
         function toggleLanguage() {
-            currentLang = currentLang === 'sv' ? 'en' : 'sv';
-            updateUI();
+            state.lang = state.lang === 'sv' ? 'en' : 'sv';
+            updateTextUI();
+            updateStateUI();
         }
 
-        function updateUI() {
-            document.getElementById('titleText').innerText = t('title');
-            document.getElementById('dropzoneText').innerText = t('dropzone');
-            document.getElementById('processBtn').innerText = t('processBtn');
-            document.getElementById('downloadIndBtn').innerText = t('downloadIndBtn');
-            document.getElementById('downloadZipBtn').innerText = t('downloadZipBtn');
-            document.getElementById('logsTitle').innerText = t('logsTitle');
-            document.getElementById('langToggle').innerText = t('langToggle');
+        function updateTextUI() {
+            document.getElementById('ui-title').innerText = t('title');
+            document.getElementById('ui-drop-title').innerText = t('dropTitle');
+            document.getElementById('ui-drop-sub').innerText = t('dropSub');
+            document.getElementById('ui-btn-upload').innerText = t('btnUpload');
+            document.getElementById('ui-btn-process').innerText = t('btnProcess');
+            document.getElementById('ui-btn-download-zip').innerText = t('btnDownloadZip');
+            document.getElementById('ui-logs-title').innerText = t('logsTitle');
             
-            updateThemeBtnText();
+            els.btnLang.innerText = t('langToggle');
+            els.btnTheme.innerText = state.theme === 'light' ? t('themeDark') : t('themeLight');
             
-            if (filesToProcess.length === 0) {
-                document.getElementById('statusText').innerText = t('statusWaiting');
-            } else if (processedFiles.length === filesToProcess.length && filesToProcess.length > 0) {
-                document.getElementById('statusText').innerText = t('statusDone');
+            // Update dynamic texts based on state
+            if (state.processedFiles.length > 0) {
+                document.getElementById('ui-btn-download-ind').innerText = state.processedFiles.length === 1 ? t('btnDownloadSingle') : t('btnDownloadMulti');
+                if (state.processedFiles.length === 1) {
+                    els.zipTooltipWrapper.setAttribute('data-tooltip', t('zipTooltip'));
+                } else {
+                    els.zipTooltipWrapper.removeAttribute('data-tooltip');
+                }
             } else {
-                document.getElementById('statusText').innerText = t('statusReady').replace('{0}', filesToProcess.length);
+                document.getElementById('ui-btn-download-ind').innerText = t('btnDownloadSingle');
             }
         }
 
-        // --- Filhantering (Drag & Drop) ---
-        const dropzone = document.getElementById('dropzone');
-        const fileInput = document.getElementById('fileInput');
-
-        dropzone.addEventListener('click', () => fileInput.click());
-
-        dropzone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropzone.classList.add('dragover');
-        });
-
-        dropzone.addEventListener('dragleave', () => {
-            dropzone.classList.remove('dragover');
-        });
-
-        dropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzone.classList.remove('dragover');
-            handleFiles(e.dataTransfer.files);
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-            fileInput.value = ''; // Återställ input för att kunna välja samma filer igen
-        });
-
-        function handleFiles(fileList) {
-            // Filtrera så att vi endast hanterar XML-filer
-            filesToProcess = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.xml'));
-            processedFiles =[];
-            updateProgress(0);
-            
-            document.getElementById('downloadIndBtn').disabled = true;
-            document.getElementById('downloadZipBtn').disabled = true;
-
-            if(filesToProcess.length > 0) {
-                logMessage(t('logFilesSelected').replace('{0}', filesToProcess.length), 'info');
-                document.getElementById('processBtn').disabled = false;
-                document.getElementById('statusText').innerText = t('statusReady').replace('{0}', filesToProcess.length);
+        function updateStateUI() {
+            if (state.filesToProcess.length === 0) {
+                els.statusText.innerText = t('statusWaiting');
+                els.btnProcess.disabled = true;
+                els.btnDownloadInd.disabled = true;
+                els.btnDownloadZip.disabled = true;
+                els.progressBar.style.width = '0%';
+                els.zipTooltipWrapper.removeAttribute('data-tooltip');
+            } else if (state.processedFiles.length === state.filesToProcess.length) {
+                els.statusText.innerText = t('statusDone').replace('{0}', state.processedFiles.length);
+                els.btnProcess.disabled = true;
+                els.btnDownloadInd.disabled = false;
+                
+                // Logic for 1 vs multiple files
+                if (state.processedFiles.length === 1) {
+                    document.getElementById('ui-btn-download-ind').innerText = t('btnDownloadSingle');
+                    els.btnDownloadZip.disabled = true;
+                    els.zipTooltipWrapper.setAttribute('data-tooltip', t('zipTooltip'));
+                } else {
+                    document.getElementById('ui-btn-download-ind').innerText = t('btnDownloadMulti');
+                    els.btnDownloadZip.disabled = false;
+                    els.zipTooltipWrapper.removeAttribute('data-tooltip');
+                }
             } else {
-                logMessage(t('logNoFiles'), 'error');
-                document.getElementById('processBtn').disabled = true;
-                document.getElementById('statusText').innerText = t('statusWaiting');
+                els.statusText.innerText = t('statusReady').replace('{0}', state.filesToProcess.length);
+                els.btnProcess.disabled = false;
+                els.btnDownloadInd.disabled = true;
+                els.btnDownloadZip.disabled = true;
+                els.progressBar.style.width = '0%';
+                els.zipTooltipWrapper.removeAttribute('data-tooltip');
             }
         }
 
-        function readFileAsText(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = () => reject(reader.error);
-                reader.readAsText(file);
+        // --- Logging ---
+        function log(msg, type = 'info') {
+            const time = new Date().toLocaleTimeString('sv-SE', { hour12: false });
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+            els.logsWindow.appendChild(entry);
+            els.logsWindow.scrollTop = els.logsWindow.scrollHeight;
+        }
+
+        // --- File Handling ---
+        function setupDragAndDrop() {
+            els.dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                els.dropzone.classList.add('dragover');
+            });
+
+            els.dropzone.addEventListener('dragleave', () => {
+                els.dropzone.classList.remove('dragover');
+            });
+
+            els.dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                els.dropzone.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            els.fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+                els.fileInput.value = ''; // Reset input
             });
         }
 
-        // --- Bearbetningslogik (Kärnfunktion) ---
-        async function processFiles() {
-            document.getElementById('processBtn').disabled = true;
-            document.getElementById('statusText').innerText = t('statusProcessing');
-            logMessage(t('logStarted'), 'info');
-            processedFiles =[];
-            updateProgress(0);
+        function handleFiles(fileList) {
+            const xmlFiles = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.xml'));
             
-            for(let i = 0; i < filesToProcess.length; i++) {
-                let file = filesToProcess[i];
-                try {
-                    let content = await readFileAsText(file);
-                    
-                    // 1. Ersätt DATE="DD.MM.YYYY" med DATE="YYYY-MM-DD"
-                    let updatedContent = content.replace(/DATE="(\d{2})\.(\d{2})\.(\d{4})"/g, 'DATE="$3-$2-$1"');
-                    
-                    // 2. Rätta till eventuella dubbla citattecken i slutet DATE="YYYY-MM-DD"" -> DATE="YYYY-MM-DD"
-                    updatedContent = updatedContent.replace(/DATE="(\d{4}-\d{2}-\d{2})""/g, 'DATE="$1"');
-                    
-                    // Skapa nytt filnamn med _KLAR
-                    let newFileName = file.name.replace(/\.xml$/i, "_KLAR.xml");
-                    
-                    processedFiles.push({ name: newFileName, content: updatedContent });
-                    
-                    logMessage(t('logFileProcessed').replace('{0}', file.name).replace('{1}', newFileName) + ` (${formatBytes(file.size)})`, 'success');
-                } catch(err) {
-                    logMessage(t('logError').replace('{0}', file.name).replace('{1}', err.message), 'error');
-                }
-                
-                updateProgress(((i + 1) / filesToProcess.length) * 100);
-                
-                // Pausa minimalt för att hålla UI:t responsivt vid stora mängder filer
-                if (i % 5 === 0) {
-                    await new Promise(r => setTimeout(r, 0));
-                }
+            if (xmlFiles.length === 0) {
+                log(t('logError').replace('{0}', 'Upload').replace('{1}', 'No XML files found.'), 'error');
+                return;
             }
+
+            // Reset state for new batch
+            state.filesToProcess = xmlFiles;
+            state.processedFiles =[];
             
-            document.getElementById('statusText').innerText = t('statusDone');
-            logMessage(t('logFinished'), 'success');
-            
-            document.getElementById('downloadIndBtn').disabled = false;
-            document.getElementById('downloadZipBtn').disabled = false;
+            log(t('logFilesSelected').replace('{0}', xmlFiles.length), 'info');
+            updateStateUI();
         }
 
-        // --- Nedladdningslogik ---
+        // --- Core Processing Logic ---
+        async function processFiles() {
+            els.btnProcess.disabled = true;
+            log(t('logStarted'), 'info');
+            state.processedFiles =[];
+            
+            for (let i = 0; i < state.filesToProcess.length; i++) {
+                let file = state.filesToProcess[i];
+                els.statusText.innerText = t('statusProcessing').replace('{0}', i + 1).replace('{1}', state.filesToProcess.length);
+                
+                try {
+                    // Read file content
+                    let content = await file.text();
+                    
+                    // Regex 1: Replace DATE="DD.MM.YYYY" with DATE="YYYY-MM-DD"
+                    let updatedContent = content.replace(/DATE="(\d{2})\.(\d{2})\.(\d{4})"/g, 'DATE="$3-$2-$1"');
+                    
+                    // Regex 2: Fix double quotes DATE="YYYY-MM-DD"" to DATE="YYYY-MM-DD"
+                    updatedContent = updatedContent.replace(/DATE="(\d{4}-\d{2}-\d{2})""/g, 'DATE="$1"');
+                    
+                    // Generate new filename
+                    let newFileName = file.name.replace(/\.xml$/i, "_KLAR.xml");
+                    
+                    state.processedFiles.push({ name: newFileName, content: updatedContent });
+                    log(t('logProcessed').replace('{0}', file.name).replace('{1}', newFileName), 'success');
+                    
+                } catch (err) {
+                    log(t('logError').replace('{0}', file.name).replace('{1}', err.message), 'error');
+                }
+                
+                // Update Progress
+                let percent = ((i + 1) / state.filesToProcess.length) * 100;
+                els.progressBar.style.width = `${percent}%`;
+                
+                // Small delay to allow UI to breathe
+                await new Promise(r => setTimeout(r, 10));
+            }
+            
+            log(t('logFinished'), 'success');
+            updateStateUI();
+        }
+
+        // --- Download Logic ---
         async function downloadIndividually() {
-            logMessage(t('logDownloadIndStarted'), 'info');
-            for(let i = 0; i < processedFiles.length; i++) {
-                let pf = processedFiles[i];
-                const blob = new Blob([pf.content], {type: "application/xml"});
+            log(t('logDownloadStart'), 'info');
+            
+            for (let i = 0; i < state.processedFiles.length; i++) {
+                let pf = state.processedFiles[i];
+                const blob = new Blob([pf.content], { type: "application/xml" });
                 const url = URL.createObjectURL(blob);
                 
                 const a = document.createElement('a');
@@ -518,29 +646,34 @@
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                URL.revokeObjectURL(url);
                 
-                // Fördröjning på 300ms för att förhindra att webbläsaren blockerar massnedladdning
-                await new Promise(r => setTimeout(r, 300));
+                // Clean up memory
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                
+                // Delay to prevent browser blocking multiple downloads
+                if (state.processedFiles.length > 1) {
+                    await new Promise(r => setTimeout(r, 400));
+                }
             }
-            logMessage(t('logDownloadIndDone'), 'success');
+            log(t('logDownloadDone'), 'success');
         }
 
         async function downloadZip() {
             if (typeof JSZip === 'undefined') {
-                logMessage("JSZip biblioteket kunde inte laddas. Kontrollera din internetanslutning.", "error");
+                log("JSZip library not loaded. Check internet connection.", "error");
                 return;
             }
             
-            logMessage(t('logZipGenerating'), 'info');
-            const zip = new JSZip();
-            
-            processedFiles.forEach(pf => {
-                zip.file(pf.name, pf.content);
-            });
+            log(t('logZipStart'), 'info');
+            els.btnDownloadZip.disabled = true; // Prevent double clicks
             
             try {
-                const blob = await zip.generateAsync({type: "blob"});
+                const zip = new JSZip();
+                state.processedFiles.forEach(pf => {
+                    zip.file(pf.name, pf.content);
+                });
+                
+                const blob = await zip.generateAsync({ type: "blob" });
                 const url = URL.createObjectURL(blob);
                 
                 const a = document.createElement('a');
@@ -549,17 +682,18 @@
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                URL.revokeObjectURL(url);
                 
-                logMessage(t('logZipDone'), 'success');
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                log(t('logZipDone'), 'success');
             } catch (err) {
-                logMessage(t('logError').replace('{0}', 'ZIP').replace('{1}', err.message), 'error');
+                log(t('logError').replace('{0}', 'ZIP').replace('{1}', err.message), 'error');
+            } finally {
+                els.btnDownloadZip.disabled = false;
             }
         }
 
-        // Initiera UI vid start
-        updateUI();
-        logMessage("System redo. Vänligen välj filer för att börja.", "info");
+        // Boot up
+        init();
     </script>
 </body>
 </html>
