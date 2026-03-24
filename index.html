@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="sv" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XML Datumformaterare</title>
+    
+    <!-- JSZip via CDN för att kunna skapa ZIP-filer på klientsidan -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <style>
+        :root {
+            /* Ljust tema (Standard) */
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --border: #e5e7eb;
+            --dropzone-bg: #f9fafb;
+            --log-bg: #1f2937;
+            --log-text: #e5e7eb;
+            --success: #34d399;
+            --error: #ef4444;
+            --info: #60a5fa;
+            --disabled: #9ca3af;
+        }[data-theme="dark"] {
+            /* Mörkt tema */
+            --bg-color: #111827;
+            --card-bg: #1f2937;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --primary: #3b82f6;
+            --primary-hover: #60a5fa;
+            --border: #374151;
+            --dropzone-bg: #374151;
+            --log-bg: #000000;
+            --log-text: #d1d5db;
+            --success: #10b981;
+            --error: #f87171;
+            --info: #3b82f6;
+            --disabled: #4b5563;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .controls button {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .controls button:hover {
+            background-color: var(--dropzone-bg);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        .dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            background-color: var(--dropzone-bg);
+            transition: all 0.2s ease;
+            margin-bottom: 20px;
+            user-select: none;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--primary);
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+
+        .dropzone svg {
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+
+        .progress-container {
+            height: 8px;
+            background-color: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: var(--primary);
+            transition: width 0.3s ease;
+        }
+
+        .status-text {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .actions button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .actions button:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        .actions button:disabled {
+            background-color: var(--disabled);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .logs-section {
+            margin-top: 30px;
+        }
+
+        .logs-section h3 {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: var(--text-main);
+        }
+
+        .logs {
+            background-color: var(--log-bg);
+            color: var(--log-text);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            padding: 15px;
+            border-radius: 6px;
+            height: 220px;
+            overflow-y: auto;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .log-line { margin-bottom: 4px; line-height: 1.4; }
+        .log-error { color: var(--error); }
+        .log-success { color: var(--success); }
+        .log-info { color: var(--info); }
+
+        /* Tillgänglighet */
+        button:focus-visible, input:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* Mobilanpassning */
+        @media (max-width: 600px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            .controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .controls button {
+                flex: 1;
+            }
+            .actions {
+                flex-direction: column;
+            }
+            .actions button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1 id="titleText">XML Datumformaterare</h1>
+            <div class="controls">
+                <button id="langToggle" onclick="toggleLanguage()">🇬🇧 English</button>
+                <button id="themeToggle" onclick="toggleTheme()">🌙 Mörkt</button>
+            </div>
+        </header>
+        
+        <main class="card">
+            <div id="dropzone" class="dropzone">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p id="dropzoneText">Dra och släpp XML-filer här eller klicka för att välja</p>
+                <input type="file" id="fileInput" multiple accept=".xml" style="display: none;">
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <p id="statusText" class="status-text">Väntar på filer...</p>
+            
+            <div class="actions">
+                <button id="processBtn" onclick="processFiles()" disabled>Bearbeta Filer</button>
+                <button id="downloadIndBtn" onclick="downloadIndividually()" disabled>Ladda ner separat</button>
+                <button id="downloadZipBtn" onclick="downloadZip()" disabled>Ladda ner som ZIP</button>
+            </div>
+            
+            <div class="logs-section">
+                <h3 id="logsTitle">Händelselogg</h3>
+                <div id="logs" class="logs"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- Översättningar (i18n) ---
+        const i18n = {
+            sv: {
+                title: "XML Datumformaterare",
+                dropzone: "Dra och släpp XML-filer här eller klicka för att välja",
+                processBtn: "Bearbeta Filer",
+                downloadIndBtn: "Ladda ner separat",
+                downloadZipBtn: "Ladda ner som ZIP",
+                logsTitle: "Händelselogg",
+                langToggle: "🇬🇧 English",
+                themeDark: "🌙 Mörkt",
+                themeLight: "☀️ Ljust",
+                statusWaiting: "Väntar på filer...",
+                statusReady: "Redo att bearbeta {0} fil(er).",
+                statusProcessing: "Bearbetar...",
+                statusDone: "Klar!",
+                logStarted: "Startade bearbetning av filer...",
+                logFilesSelected: "{0} XML-fil(er) valda. Redo för bearbetning.",
+                logFileProcessed: "Bearbetad: {0} -> {1}",
+                logFinished: "Alla filer har bearbetats framgångsrikt.",
+                logError: "Fel vid bearbetning av {0}: {1}",
+                logNoFiles: "Inga giltiga XML-filer valda.",
+                logZipGenerating: "Skapar ZIP-fil...",
+                logZipDone: "ZIP-fil skapad och nedladdning startad.",
+                logDownloadIndStarted: "Startar nedladdning av enskilda filer...",
+                logDownloadIndDone: "Alla filer har laddats ner.",
+                zipFilename: "Bearbetade_XML_Filer.zip"
+            },
+            en: {
+                title: "XML Date Formatter",
+                dropzone: "Drag and drop XML files here or click to select",
+                processBtn: "Process Files",
+                downloadIndBtn: "Download Individually",
+                downloadZipBtn: "Download as ZIP",
+                logsTitle: "Event Log",
+                langToggle: "🇸🇪 Svenska",
+                themeDark: "🌙 Dark",
+                themeLight: "☀️ Light",
+                statusWaiting: "Waiting for files...",
+                statusReady: "Ready to process {0} file(s).",
+                statusProcessing: "Processing...",
+                statusDone: "Done!",
+                logStarted: "Started processing files...",
+                logFilesSelected: "{0} XML file(s) selected. Ready for processing.",
+                logFileProcessed: "Processed: {0} -> {1}",
+                logFinished: "All files processed successfully.",
+                logError: "Error processing {0}: {1}",
+                logNoFiles: "No valid XML files selected.",
+                logZipGenerating: "Generating ZIP file...",
+                logZipDone: "ZIP file generated and download started.",
+                logDownloadIndStarted: "Starting individual file downloads...",
+                logDownloadIndDone: "All files downloaded.",
+                zipFilename: "Processed_XML_Files.zip"
+            }
+        };
+
+        // --- Tillstånd (State) ---
+        let currentLang = 'sv';
+        let currentTheme = 'light';
+        let filesToProcess = [];
+        let processedFiles =[]; // Array av objekt: { name: string, content: string }
+
+        // --- Hjälpfunktioner ---
+        function t(key) {
+            return i18n[currentLang][key];
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes =['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        function logMessage(msg, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            const logLine = document.createElement('div');
+            logLine.className = `log-line log-${type}`;
+            logLine.textContent = `[${time}] ${msg}`;
+            logsDiv.appendChild(logLine);
+            logsDiv.scrollTop = logsDiv.scrollHeight; // Auto-scroll till botten
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        // --- UI & Tema ---
+        function toggleTheme() {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            updateThemeBtnText();
+        }
+
+        function updateThemeBtnText() {
+            const btn = document.getElementById('themeToggle');
+            btn.innerText = currentTheme === 'light' ? t('themeDark') : t('themeLight');
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'sv' ? 'en' : 'sv';
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('titleText').innerText = t('title');
+            document.getElementById('dropzoneText').innerText = t('dropzone');
+            document.getElementById('processBtn').innerText = t('processBtn');
+            document.getElementById('downloadIndBtn').innerText = t('downloadIndBtn');
+            document.getElementById('downloadZipBtn').innerText = t('downloadZipBtn');
+            document.getElementById('logsTitle').innerText = t('logsTitle');
+            document.getElementById('langToggle').innerText = t('langToggle');
+            
+            updateThemeBtnText();
+            
+            if (filesToProcess.length === 0) {
+                document.getElementById('statusText').innerText = t('statusWaiting');
+            } else if (processedFiles.length === filesToProcess.length && filesToProcess.length > 0) {
+                document.getElementById('statusText').innerText = t('statusDone');
+            } else {
+                document.getElementById('statusText').innerText = t('statusReady').replace('{0}', filesToProcess.length);
+            }
+        }
+
+        // --- Filhantering (Drag & Drop) ---
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+            fileInput.value = ''; // Återställ input för att kunna välja samma filer igen
+        });
+
+        function handleFiles(fileList) {
+            // Filtrera så att vi endast hanterar XML-filer
+            filesToProcess = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.xml'));
+            processedFiles =[];
+            updateProgress(0);
+            
+            document.getElementById('downloadIndBtn').disabled = true;
+            document.getElementById('downloadZipBtn').disabled = true;
+
+            if(filesToProcess.length > 0) {
+                logMessage(t('logFilesSelected').replace('{0}', filesToProcess.length), 'info');
+                document.getElementById('processBtn').disabled = false;
+                document.getElementById('statusText').innerText = t('statusReady').replace('{0}', filesToProcess.length);
+            } else {
+                logMessage(t('logNoFiles'), 'error');
+                document.getElementById('processBtn').disabled = true;
+                document.getElementById('statusText').innerText = t('statusWaiting');
+            }
+        }
+
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsText(file);
+            });
+        }
+
+        // --- Bearbetningslogik (Kärnfunktion) ---
+        async function processFiles() {
+            document.getElementById('processBtn').disabled = true;
+            document.getElementById('statusText').innerText = t('statusProcessing');
+            logMessage(t('logStarted'), 'info');
+            processedFiles =[];
+            updateProgress(0);
+            
+            for(let i = 0; i < filesToProcess.length; i++) {
+                let file = filesToProcess[i];
+                try {
+                    let content = await readFileAsText(file);
+                    
+                    // 1. Ersätt DATE="DD.MM.YYYY" med DATE="YYYY-MM-DD"
+                    let updatedContent = content.replace(/DATE="(\d{2})\.(\d{2})\.(\d{4})"/g, 'DATE="$3-$2-$1"');
+                    
+                    // 2. Rätta till eventuella dubbla citattecken i slutet DATE="YYYY-MM-DD"" -> DATE="YYYY-MM-DD"
+                    updatedContent = updatedContent.replace(/DATE="(\d{4}-\d{2}-\d{2})""/g, 'DATE="$1"');
+                    
+                    // Skapa nytt filnamn med _KLAR
+                    let newFileName = file.name.replace(/\.xml$/i, "_KLAR.xml");
+                    
+                    processedFiles.push({ name: newFileName, content: updatedContent });
+                    
+                    logMessage(t('logFileProcessed').replace('{0}', file.name).replace('{1}', newFileName) + ` (${formatBytes(file.size)})`, 'success');
+                } catch(err) {
+                    logMessage(t('logError').replace('{0}', file.name).replace('{1}', err.message), 'error');
+                }
+                
+                updateProgress(((i + 1) / filesToProcess.length) * 100);
+                
+                // Pausa minimalt för att hålla UI:t responsivt vid stora mängder filer
+                if (i % 5 === 0) {
+                    await new Promise(r => setTimeout(r, 0));
+                }
+            }
+            
+            document.getElementById('statusText').innerText = t('statusDone');
+            logMessage(t('logFinished'), 'success');
+            
+            document.getElementById('downloadIndBtn').disabled = false;
+            document.getElementById('downloadZipBtn').disabled = false;
+        }
+
+        // --- Nedladdningslogik ---
+        async function downloadIndividually() {
+            logMessage(t('logDownloadIndStarted'), 'info');
+            for(let i = 0; i < processedFiles.length; i++) {
+                let pf = processedFiles[i];
+                const blob = new Blob([pf.content], {type: "application/xml"});
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = pf.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                // Fördröjning på 300ms för att förhindra att webbläsaren blockerar massnedladdning
+                await new Promise(r => setTimeout(r, 300));
+            }
+            logMessage(t('logDownloadIndDone'), 'success');
+        }
+
+        async function downloadZip() {
+            if (typeof JSZip === 'undefined') {
+                logMessage("JSZip biblioteket kunde inte laddas. Kontrollera din internetanslutning.", "error");
+                return;
+            }
+            
+            logMessage(t('logZipGenerating'), 'info');
+            const zip = new JSZip();
+            
+            processedFiles.forEach(pf => {
+                zip.file(pf.name, pf.content);
+            });
+            
+            try {
+                const blob = await zip.generateAsync({type: "blob"});
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = t('zipFilename');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                logMessage(t('logZipDone'), 'success');
+            } catch (err) {
+                logMessage(t('logError').replace('{0}', 'ZIP').replace('{1}', err.message), 'error');
+            }
+        }
+
+        // Initiera UI vid start
+        updateUI();
+        logMessage("System redo. Vänligen välj filer för att börja.", "info");
+    </script>
+</body>
+</html>
