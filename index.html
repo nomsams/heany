@@ -88,6 +88,7 @@
             display: flex; align-items: center; gap: 6px;
         }
         .icon-btn:hover { background: var(--dropzone-bg); transform: translateY(-1px); }
+        .icon-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
         .card {
             background-color: var(--bg-card); border-radius: var(--radius-card);
@@ -191,6 +192,9 @@
         .close-btn { background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; }
         .close-btn:hover { color: var(--error); }
         .modal-chart { height: 350px; width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+        
+        /* Run Selector inside Modal */
+        .run-selector { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 768px) { .chart-grid { grid-template-columns: 1fr; } }
@@ -317,6 +321,7 @@
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="run-selector" id="modal-run-selector"></div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;" id="modal-badges"></div>
                 <div class="modal-chart" id="modal-chart-time"></div>
                 <div style="display: flex; gap: 24px; flex-wrap: wrap;">
@@ -349,10 +354,9 @@
             processedFiles:[], // For _KLAR.xml downloads
             analytics: {
                 runs:[],
-                points: [],
+                points:[],
                 holeStages:[]
-            },
-            currentModalRunId: null
+            }
         };
 
         // ==========================================
@@ -575,6 +579,13 @@
             }
         }
 
+        function median(arr) {
+            if (arr.length === 0) return 0;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+
         // ==========================================
         // FILE HANDLING
         // ==========================================
@@ -600,7 +611,7 @@
             }
             state.filesToProcess = xmlFiles;
             state.processedFiles = [];
-            state.analytics = { runs: [], points: [], holeStages:[] };
+            state.analytics = { runs: [], points:[], holeStages:[] };
             log(`${xmlFiles.length} XML file(s) loaded. Ready.`, 'info');
             updateStateUI();
         }
@@ -655,16 +666,6 @@
         // ==========================================
         // XML PARSER (STATE MACHINE)
         // ==========================================
-        function parseAttributes(attrStr) {
-            const attrs = {};
-            const regex = /([A-Z0-9_]+)="([^"]*)"/g;
-            let match;
-            while ((match = regex.exec(attrStr)) !== null) {
-                attrs[match[1]] = match[2];
-            }
-            return attrs;
-        }
-
         function parsePumpLog(text) {
             const tagRegex = /<(header|data|footer)\s+([^>]+)\/?>/gi;
             let match;
@@ -680,7 +681,7 @@
                 if (tagType === 'header') {
                     // If a run is already open for this channel, close it forcefully
                     if (currentRunByChannel[ch]) {
-                        log(`Warning: Orphaned run closed on CH ${ch}`, 'warning');
+                        log(`Warning: Orphaned run closed on CH ${ch} without footer.`, 'warning');
                         state.analytics.runs.push(currentRunByChannel[ch]);
                     }
                     
@@ -710,10 +711,13 @@
                     if (currentRunByChannel[ch]) {
                         currentRunByChannel[ch].points.push({
                             runId: currentRunByChannel[ch].runId,
+                            channel: ch,
                             p: safeParseFloat(attrs.P, 0),
                             q: safeParseFloat(attrs.Q, 0),
                             v: safeParseFloat(attrs.V, 0)
                         });
+                    } else {
+                        log(`Orphan <data> tag found on CH ${ch} without an open header.`, 'warning');
                     }
                 } 
                 else if (tagType === 'footer') {
@@ -721,6 +725,8 @@
                         currentRunByChannel[ch].footer = attrs;
                         state.analytics.runs.push(currentRunByChannel[ch]);
                         currentRunByChannel[ch] = null;
+                    } else {
+                        log(`Orphan <footer> tag found on CH ${ch} without an open header.`, 'warning');
                     }
                 }
             }
@@ -728,9 +734,20 @@
             // Cleanup any left open runs
             for (let ch in currentRunByChannel) {
                 if (currentRunByChannel[ch]) {
+                    log(`Warning: Run on CH ${ch} ended without footer.`, 'warning');
                     state.analytics.runs.push(currentRunByChannel[ch]);
                 }
             }
+        }
+
+        function parseAttributes(attrStr) {
+            const attrs = {};
+            const regex = /([A-Z0-9_]+)="([^"]*)"/g;
+            let match;
+            while ((match = regex.exec(attrStr)) !== null) {
+                attrs[match[1]] = match[2];
+            }
+            return attrs;
         }
 
         // ==========================================
@@ -755,9 +772,15 @@
 
                 let pArr = [], qArr =[], vArr =[];
                 let activeTime = 0, holdTime = 0;
+                let consecutiveHolds = 0;
                 
                 pts.forEach((pt, idx) => {
+                    pt.sampleIndex = idx;
                     pt.elapsedS = idx * run.sampleIntervalS;
+                    pt.dv = idx === 0 ? 0 : pt.v - pts[idx-1].v;
+                    pt.dp = idx === 0 ? 0 : pt.p - pts[idx-1].p;
+                    pt.dq = idx === 0 ? 0 : pt.q - pts[idx-1].q;
+
                     pArr.push(pt.p);
                     qArr.push(pt.q);
                     vArr.push(pt.v);
@@ -779,8 +802,22 @@
                     pt.isActiveFlow = pt.q > CONFIG.ACTIVE_FLOW_THRESHOLD;
                     if (pt.isActiveFlow) activeTime += interval;
                     
-                    pt.isHold = (pt.q <= CONFIG.VERY_LOW_FLOW_THRESHOLD) && (pt.p >= highPThresh);
-                    if (pt.isHold) holdTime += interval;
+                    let isRawHold = (pt.q <= CONFIG.VERY_LOW_FLOW_THRESHOLD) && (pt.p >= highPThresh);
+                    if (isRawHold) {
+                        consecutiveHolds++;
+                    } else {
+                        consecutiveHolds = 0;
+                    }
+
+                    pt.isHold = consecutiveHolds >= CONFIG.MIN_CONSECUTIVE_REFUSAL_POINTS;
+                    if (pt.isHold) {
+                        if (consecutiveHolds === CONFIG.MIN_CONSECUTIVE_REFUSAL_POINTS) {
+                            // Retroactively add the time for the initial points that made up this sequence
+                            holdTime += interval * CONFIG.MIN_CONSECUTIVE_REFUSAL_POINTS;
+                        } else {
+                            holdTime += interval;
+                        }
+                    }
                     
                     state.analytics.points.push(pt);
                 });
@@ -789,18 +826,29 @@
                 run.holdTimeS = holdTime;
                 
                 // Footer overrides if exist (Primary Truth)
-                const fallbackDuration = Math.max(0, (pts.length - 1) * run.sampleIntervalS);
+                const impliedDuration = Math.max(0, (pts.length - 1) * run.sampleIntervalS);
                 const fallbackVolume = Math.max(...vArr) - Math.min(...vArr);
                 const fallbackTerminalP = pts[pts.length - 1].p;
 
                 if (run.footer) {
-                    run.totalDurationS = safeParseFloat(run.footer.DURA, fallbackDuration);
+                    run.totalDurationS = safeParseFloat(run.footer.DURA, impliedDuration);
                     run.totalVolume = safeParseFloat(run.footer.VEND, fallbackVolume);
                     run.terminalPressure = safeParseFloat(run.footer.PEND, fallbackTerminalP);
                     run.footerLuge = safeParseFloat(run.footer.LUGE, 0);
                     run.stopReason = run.footer.REASON || "Unknown";
+
+                    // Log mismatches
+                    if (Math.abs(run.totalDurationS - impliedDuration) > run.sampleIntervalS) {
+                        log(`Run ${run.runId}: Footer DURA (${run.totalDurationS}) differs from implied duration (${impliedDuration})`, 'warning');
+                    }
+                    if (Math.abs(run.totalVolume - fallbackVolume) > 1.0) {
+                        log(`Run ${run.runId}: Footer VEND (${run.totalVolume}) differs from last sample V (${fallbackVolume})`, 'warning');
+                    }
+                    if (Math.abs(run.terminalPressure - fallbackTerminalP) > 1.0) {
+                        log(`Run ${run.runId}: Footer PEND (${run.terminalPressure}) differs from last sample P (${fallbackTerminalP})`, 'warning');
+                    }
                 } else {
-                    run.totalDurationS = fallbackDuration;
+                    run.totalDurationS = impliedDuration;
                     run.totalVolume = fallbackVolume;
                     run.terminalPressure = fallbackTerminalP;
                     run.footerLuge = 0;
@@ -810,12 +858,12 @@
                 run.isZeroTake = run.totalVolume < CONFIG.ZERO_TAKE_VOLUME_THRESHOLD;
                 run.refusalIndex = run.totalDurationS > 0 ? holdTime / run.totalDurationS : 0;
 
-                // Classification Logic
+                // Classification Logic (Order matters!)
                 const reasonLower = run.stopReason.toLowerCase();
                 if (run.isTestLike) run.classification = 'test_or_nonproduction';
                 else if (run.isZeroTake) run.classification = 'no_take';
+                else if (run.refusalIndex > 0.3) run.classification = 'refusal_prone'; // Checked BEFORE pressure_limited
                 else if (reasonLower.includes('pressure')) run.classification = 'pressure_limited';
-                else if (run.refusalIndex > 0.3) run.classification = 'refusal_prone';
                 else if (run.totalDurationS > 0 && (run.activePumpingTimeS / run.totalDurationS) < 0.5) run.classification = 'productive_unstable';
                 else run.classification = 'productive_stable';
             });
@@ -840,9 +888,8 @@
                         holdTimeS: 0,
                         peakPressure: 0,
                         lugeSum: 0,
-                        refusalSum: 0,
                         stopReasons: {},
-                        runs: []
+                        runs:[]
                     };
                 }
                 
@@ -855,7 +902,6 @@
                 hs.holdTimeS += run.holdTimeS;
                 if (run.pMax > hs.peakPressure) hs.peakPressure = run.pMax;
                 hs.lugeSum += run.footerLuge;
-                hs.refusalSum += run.refusalIndex;
                 
                 hs.stopReasons[run.stopReason] = (hs.stopReasons[run.stopReason] || 0) + 1;
             });
@@ -863,10 +909,18 @@
             state.analytics.holeStages = Object.values(map).map(hs => {
                 hs.retryCount = hs.runCount - 1;
                 hs.meanFooterLuge = hs.lugeSum / hs.runCount;
-                hs.weightedRefusalIndex = hs.refusalSum / hs.runCount;
                 
-                // Use real LENGTH from runs (max valid length found)
-                hs.lengthM = Math.max(...hs.runs.map(r => r.lengthM)) || 1;
+                // Weighted metrics
+                hs.weightedRefusalIndex = hs.runs.reduce((sum, r) => sum + (r.refusalIndex * r.totalDurationS), 0) / (hs.totalDurationS || 1);
+                hs.weightedTerminalPressure = hs.runs.reduce((sum, r) => sum + (r.terminalPressure * r.totalVolume), 0) / (hs.totalVolume || 1);
+                
+                // Stop counts
+                hs.operatorStopCount = hs.runs.filter(r => r.stopReason.toLowerCase().includes('operator')).length;
+                hs.pressureStopCount = hs.runs.filter(r => r.stopReason.toLowerCase().includes('pressure')).length;
+
+                // Use real LENGTH from runs (median valid length found)
+                const lengths = hs.runs.map(r => r.lengthM).filter(l => l > 0);
+                hs.lengthM = lengths.length > 0 ? median(lengths) : 1;
                 hs.volumePerMeterTotal = hs.totalVolume / hs.lengthM;
                 
                 // Terminal pressure max across runs
@@ -876,10 +930,15 @@
                 hs.dominantStopReason = Object.keys(hs.stopReasons).reduce((a, b) => hs.stopReasons[a] > hs.stopReasons[b] ? a : b, "Unknown");
                 
                 // Difficulty Score (0-100)
-                let normDur = Math.min(hs.totalDurationS / 3600, 1); // max 1 hour
-                let normVol = Math.min(hs.volumePerMeterTotal / 500, 1); // max 500 L/m
-                let normRetry = Math.min(hs.retryCount / 5, 1); // max 5 retries
-                let normPeakP = Math.min(hs.terminalPressureMax / 40, 1); // max 40 bar terminal
+                // normDur: total duration / 3600 (max 1 hour)
+                // normVol: volume per meter / 500 (max 500 L/m)
+                // normRefusal: weighted refusal index (max 1)
+                // normRetry: retry count / 5 (max 5 retries)
+                // normPeakP: terminal pressure max / 40 (max 40 bar terminal)
+                let normDur = Math.min(hs.totalDurationS / 3600, 1); 
+                let normVol = Math.min(hs.volumePerMeterTotal / 500, 1); 
+                let normRetry = Math.min(hs.retryCount / 5, 1); 
+                let normPeakP = Math.min(hs.terminalPressureMax / 40, 1); 
                 
                 hs.overallDifficultyScore = (
                     (normDur * CONFIG.WEIGHTS.duration) +
@@ -1017,10 +1076,30 @@
             const runs = state.analytics.runs.filter(r => r.holeStageKey === holeStageKey);
             if(runs.length === 0) return;
             
-            // Show the longest run in this hole-stage
-            const run = runs.reduce((prev, current) => (prev.totalDurationS > current.totalDurationS) ? prev : current);
+            // Build Run Selector
+            const selector = document.getElementById('modal-run-selector');
+            selector.innerHTML = '';
+            runs.forEach((r, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'icon-btn';
+                btn.innerText = `Run ${idx + 1} (${r.runId})`;
+                btn.onclick = () => {
+                    // Update active state
+                    Array.from(selector.children).forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderModalCharts(r, runs.length, idx + 1);
+                };
+                selector.appendChild(btn);
+            });
             
-            document.getElementById('modal-title').innerText = `Run Details: ${run.runId} (${holeStageKey})`;
+            // Default to first run
+            selector.children[0].classList.add('active');
+            els.modal.classList.add('active');
+            renderModalCharts(runs[0], runs.length, 1);
+        }
+
+        function renderModalCharts(run, totalRuns, runIndex) {
+            document.getElementById('modal-title').innerText = `Run Details: ${run.runId} (${run.holeStageKey}) - Run ${runIndex} of ${totalRuns}`;
             
             const badges = document.getElementById('modal-badges');
             badges.innerHTML = `
@@ -1042,7 +1121,7 @@
 
             // Chart 2: P vs V
             const tracePV = { x: pts.map(p => p.v), y: pts.map(p => p.p), type: 'scatter', mode: 'lines', line: {color: '#af52de'} };
-            Plotly.newPlot('modal-chart-pv', [tracePV], getPlotlyLayout('Pressure vs Cumulative Volume', 'Volume (L)', 'Pressure (bar)'), {responsive: true});
+            Plotly.newPlot('modal-chart-pv',[tracePV], getPlotlyLayout('Pressure vs Cumulative Volume', 'Volume (L)', 'Pressure (bar)'), {responsive: true});
 
             // Chart 3: Q vs P Scatter
             const traceScatter = { 
@@ -1050,8 +1129,6 @@
                 marker: { color: time, colorscale: 'Viridis', showscale: true, size: 6 }
             };
             Plotly.newPlot('modal-chart-scatter',[traceScatter], getPlotlyLayout('Flow vs Pressure (Color=Time)', 'Pressure (bar)', 'Flow (L/min)'), {responsive: true});
-
-            els.modal.classList.add('active');
         }
 
         function closeModal() {
