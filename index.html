@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XML Date Formatter Pro</title>
+    <title>Grout Analytics & Formatter Pro</title>
     
-    <!-- JSZip via CDN -->
+    <!-- Dependencies -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     
     <style>
-        /* --- CSS Variables & Theming --- */
+        /* --- CSS Variables & Theming (Apple Premium Style) --- */
         :root {
-            --bg-body: #f5f5f7; /* Apple light gray */
+            --bg-body: #f5f5f7;
             --bg-card: #ffffff;
+            --bg-modal: rgba(255, 255, 255, 0.85);
             --text-main: #1d1d1f;
             --text-muted: #86868b;
-            --accent: #0071e3; /* Apple blue */
+            --accent: #0071e3;
             --accent-hover: #0077ed;
             --border: #d2d2d7;
             --dropzone-bg: #fafafa;
@@ -23,19 +25,22 @@
             --log-bg: #1e1e1e;
             --log-text: #d4d4d4;
             --success: #34c759;
+            --warning: #ff9f0a;
             --error: #ff3b30;
             --info: #32ade6;
             --disabled-bg: #e5e5ea;
             --disabled-text: #aeaeb2;
-            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.15);
             --radius-card: 18px;
             --radius-btn: 10px;
             --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        [data-theme="dark"] {
+            --chart-grid: #e5e5ea;
+        }[data-theme="dark"] {
             --bg-body: #000000;
             --bg-card: #1c1c1e;
+            --bg-modal: rgba(28, 28, 30, 0.85);
             --text-main: #f5f5f7;
             --text-muted: #98989d;
             --accent: #0a84ff;
@@ -46,408 +51,404 @@
             --log-bg: #000000;
             --log-text: #e5e5ea;
             --success: #32d74b;
+            --warning: #ffd60a;
             --error: #ff453a;
             --info: #64d2ff;
             --disabled-bg: #3a3a3c;
             --disabled-text: #636366;
-            --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.5);
+            --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.7);
+            --chart-grid: #38383a;
         }
 
         /* --- Reset & Base --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
         body {
             font-family: var(--font-stack);
             background-color: var(--bg-body);
             color: var(--text-main);
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
             padding: 20px;
-            transition: background-color 0.4s ease, color 0.4s ease;
+            transition: background-color 0.3s ease, color 0.3s ease;
             -webkit-font-smoothing: antialiased;
         }
 
         /* --- Layout --- */
-        .app-container {
-            width: 100%;
-            max-width: 760px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-            padding: 0 10px;
-        }
-
-        h1 {
-            font-size: 1.75rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-        }
-
+        .app-container { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        h1 { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; }
+        h2 { font-size: 1.4rem; font-weight: 600; margin-bottom: 16px; }
+        
         .controls { display: flex; gap: 12px; }
-
         .icon-btn {
-            background: var(--bg-card);
-            color: var(--text-main);
-            border: 1px solid var(--border);
-            padding: 8px 16px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
+            padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 20px;
+            cursor: pointer; transition: all 0.2s ease; box-shadow: var(--shadow-sm);
+            display: flex; align-items: center; gap: 6px;
         }
-
-        .icon-btn:hover {
-            background: var(--dropzone-bg);
-            transform: translateY(-1px);
-        }
+        .icon-btn:hover { background: var(--dropzone-bg); transform: translateY(-1px); }
 
         .card {
-            background-color: var(--bg-card);
-            border-radius: var(--radius-card);
-            padding: 40px;
-            box-shadow: var(--shadow);
-            transition: background-color 0.4s ease, box-shadow 0.4s ease;
+            background-color: var(--bg-card); border-radius: var(--radius-card);
+            padding: 30px; box-shadow: var(--shadow-md); margin-bottom: 24px;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         /* --- Dropzone --- */
         .dropzone {
-            border: 2px dashed var(--border);
-            border-radius: 14px;
-            padding: 50px 20px;
-            text-align: center;
-            background-color: var(--dropzone-bg);
-            transition: all 0.3s ease;
-            margin-bottom: 24px;
-            position: relative;
+            border: 2px dashed var(--border); border-radius: 14px; padding: 50px 20px;
+            text-align: center; background-color: var(--dropzone-bg); transition: all 0.3s ease;
+            margin-bottom: 24px; cursor: pointer;
         }
-
-        .dropzone.dragover {
-            border-color: var(--accent);
-            background-color: var(--dropzone-hover);
-            transform: scale(1.01);
-        }
-
-        .dropzone * { pointer-events: none; } /* Prevent drag flicker */
-        .dropzone .btn-upload { pointer-events: auto; } /* Re-enable for button */
-
-        .dropzone svg {
-            color: var(--accent);
-            margin-bottom: 16px;
-            width: 54px;
-            height: 54px;
-        }
-
-        .dropzone h3 {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .dropzone p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            margin-bottom: 20px;
-        }
-
+        .dropzone.dragover { border-color: var(--accent); background-color: var(--dropzone-hover); transform: scale(1.01); }
+        .dropzone svg { color: var(--accent); margin-bottom: 16px; width: 54px; height: 54px; pointer-events: none; }
+        .dropzone h3 { font-size: 1.2rem; font-weight: 600; margin-bottom: 8px; pointer-events: none; }
+        .dropzone p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px; pointer-events: none; }
         .btn-upload {
-            background-color: transparent;
-            color: var(--accent);
-            border: 1px solid var(--accent);
-            padding: 10px 24px;
-            border-radius: var(--radius-btn);
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .btn-upload:hover {
-            background-color: var(--accent);
-            color: #fff;
-        }
-
-        /* --- Progress & Status --- */
-        .progress-wrapper { margin-bottom: 24px; }
-        
-        .progress-track {
-            height: 8px;
-            background-color: var(--border);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 12px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background-color: var(--accent);
-            border-radius: 4px;
-            transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-
-        .status-text {
-            font-size: 0.95rem;
-            color: var(--text-muted);
-            text-align: center;
-            font-weight: 500;
-        }
-
-        /* --- Action Buttons --- */
-        .actions {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 30px;
-        }
-
-        .btn-main {
-            flex: 1;
-            padding: 14px 20px;
-            border: none;
-            border-radius: var(--radius-btn);
-            font-size: 1.05rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background-color: var(--accent);
-            color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-main:hover:not(:disabled) {
-            background-color: var(--accent-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
-        }
-
-        .btn-main:active:not(:disabled) { transform: translateY(0); }
-
-        .btn-main:disabled {
-            background-color: var(--disabled-bg);
-            color: var(--disabled-text);
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-
-        /* --- Tooltip Logic --- */
-        .tooltip-container {
-            flex: 1;
-            display: flex;
-            position: relative;
-        }
-        
-        .tooltip-container .btn-main { width: 100%; }
-
-        .tooltip-container[data-tooltip]:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.85);
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            white-space: nowrap;
+            background-color: transparent; color: var(--accent); border: 1px solid var(--accent);
+            padding: 10px 24px; border-radius: var(--radius-btn); font-size: 1rem; font-weight: 500;
             pointer-events: none;
-            margin-bottom: 10px;
-            opacity: 0;
-            animation: fadeIn 0.2s forwards 0.1s;
-            z-index: 10;
-            backdrop-filter: blur(4px);
         }
 
-        @keyframes fadeIn { to { opacity: 1; } }
+        /* --- Progress & Actions --- */
+        .progress-track { height: 8px; background-color: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+        .progress-fill { height: 100%; width: 0%; background-color: var(--accent); transition: width 0.3s ease; }
+        .status-text { font-size: 0.95rem; color: var(--text-muted); text-align: center; font-weight: 500; margin-bottom: 24px; }
+        
+        .actions { display: flex; gap: 16px; flex-wrap: wrap; }
+        .btn-main {
+            flex: 1; min-width: 200px; padding: 14px 20px; border: none; border-radius: var(--radius-btn);
+            font-size: 1.05rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+            background-color: var(--accent); color: #ffffff; display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+        .btn-main:hover:not(:disabled) { background-color: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3); }
+        .btn-main:disabled { background-color: var(--disabled-bg); color: var(--disabled-text); cursor: not-allowed; box-shadow: none; }
+        .btn-secondary { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-secondary:hover:not(:disabled) { background-color: var(--dropzone-bg); box-shadow: var(--shadow-sm); color: var(--text-main); }
+
+        /* --- Tooltip --- */
+        .tooltip-wrapper { flex: 1; min-width: 200px; position: relative; display: flex; }
+        .tooltip-wrapper .btn-main { width: 100%; }
+        .tooltip-wrapper[data-tooltip]:hover::after {
+            content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.85); color: #fff; padding: 8px 12px; border-radius: 8px;
+            font-size: 0.85rem; white-space: nowrap; pointer-events: none; margin-bottom: 10px; z-index: 10;
+        }
 
         /* --- Logs --- */
-        .logs-header {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--text-main);
-        }
-
         .logs-window {
-            background-color: var(--log-bg);
-            color: var(--log-text);
-            font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
-            font-size: 1rem; /* Större text enligt önskemål */
-            padding: 20px;
-            border-radius: 12px;
-            height: 260px;
-            overflow-y: auto;
-            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
-            line-height: 1.5;
+            background-color: var(--log-bg); color: var(--log-text); font-family: "SF Mono", monospace;
+            font-size: 0.95rem; padding: 20px; border-radius: 12px; height: 200px; overflow-y: auto;
+            line-height: 1.5; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
         }
-
         .log-entry { margin-bottom: 6px; word-break: break-all; }
         .log-time { color: #888; margin-right: 8px; font-size: 0.9em; }
         .log-error { color: var(--error); }
         .log-success { color: var(--success); }
         .log-info { color: var(--info); }
+        .log-warning { color: var(--warning); }
 
-        /* --- Scrollbar styling för loggen --- */
-        .logs-window::-webkit-scrollbar { width: 8px; }
-        .logs-window::-webkit-scrollbar-track { background: transparent; }
-        .logs-window::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-        .logs-window::-webkit-scrollbar-thumb:hover { background: #777; }
-
-        /* --- Responsiveness --- */
-        @media (max-width: 650px) {
-            .card { padding: 24px; }
-            .actions { flex-direction: column; }
-            header { flex-direction: column; align-items: flex-start; gap: 16px; }
-            .controls { width: 100%; justify-content: space-between; }
+        /* --- Dashboard --- */
+        #dashboard { display: none; animation: fadeIn 0.5s ease; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .kpi-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+            padding: 20px; text-align: center; box-shadow: var(--shadow-sm);
         }
+        .kpi-value { font-size: 2rem; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+        .kpi-label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        
+        .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 24px; margin-bottom: 24px; }
+        .chart-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; height: 400px; }
+        
+        /* --- Table --- */
+        .table-container { overflow-x: auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+        th { background-color: var(--dropzone-bg); font-weight: 600; color: var(--text-muted); position: sticky; top: 0; z-index: 1; }
+        tr:hover td { background-color: var(--dropzone-hover); cursor: pointer; }
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
+        .badge.good { background: rgba(52, 199, 89, 0.15); color: var(--success); }
+        .badge.warn { background: rgba(255, 159, 10, 0.15); color: var(--warning); }
+        .badge.bad { background: rgba(255, 59, 48, 0.15); color: var(--error); }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 1000; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal-content {
+            background: var(--bg-card); width: 95%; max-width: 1100px; height: 90vh;
+            border-radius: var(--radius-card); box-shadow: var(--shadow-lg);
+            display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 24px; }
+        .close-btn { background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; }
+        .close-btn:hover { color: var(--error); }
+        .modal-chart { height: 350px; width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 768px) { .chart-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 
     <div class="app-container">
         <header>
-            <h1 id="ui-title">XML Date Formatter</h1>
+            <h1 id="ui-title">Grout Analytics Pro</h1>
             <div class="controls">
-                <button class="icon-btn" id="btn-lang" onclick="toggleLanguage()">🇬🇧 English</button>
-                <button class="icon-btn" id="btn-theme" onclick="toggleTheme()">🌙 Mörkt</button>
+                <button class="icon-btn" id="btn-lang" onclick="toggleLanguage()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    <span id="lang-text">Svenska</span>
+                </button>
+                <button class="icon-btn" id="btn-theme" onclick="toggleTheme()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    <span id="theme-text">Dark</span>
+                </button>
             </div>
         </header>
         
+        <!-- Upload & Processing Card -->
         <main class="card">
-            <!-- Dropzone -->
             <div class="dropzone" id="dropzone">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
-                <h3 id="ui-drop-title">Dra och släpp XML-filer här</h3>
-                <p id="ui-drop-sub">eller klicka på knappen nedan för att bläddra</p>
-                <button class="btn-upload" id="ui-btn-upload" onclick="document.getElementById('fileInput').click()">Välj filer</button>
+                <h3 id="ui-drop-title">Drag & Drop XML Files</h3>
+                <p id="ui-drop-sub">or click to browse</p>
+                <button class="btn-upload" id="ui-btn-upload">Select Files</button>
                 <input type="file" id="fileInput" multiple accept=".xml" style="display: none;">
             </div>
             
-            <!-- Progress -->
             <div class="progress-wrapper">
-                <div class="progress-track">
-                    <div class="progress-fill" id="progressBar"></div>
-                </div>
-                <p class="status-text" id="statusText">Väntar på filer...</p>
+                <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
+                <p class="status-text" id="statusText">Waiting for files...</p>
             </div>
             
-            <!-- Actions -->
             <div class="actions">
                 <button class="btn-main" id="btn-process" onclick="processFiles()" disabled>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                    <span id="ui-btn-process">Bearbeta Filer</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <span id="ui-btn-process">Process & Analyze</span>
                 </button>
                 
-                <button class="btn-main" id="btn-download-ind" onclick="downloadIndividually()" disabled>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    <span id="ui-btn-download-ind">Ladda ner</span>
+                <button class="btn-main btn-secondary" id="btn-download-ind" onclick="downloadIndividually()" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span id="ui-btn-download-ind">Download Formatted XML</span>
                 </button>
                 
-                <div class="tooltip-container" id="zip-tooltip-wrapper">
-                    <button class="btn-main" id="btn-download-zip" onclick="downloadZip()" disabled>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                        <span id="ui-btn-download-zip">Ladda ner som ZIP</span>
+                <div class="tooltip-wrapper" id="zip-tooltip-wrapper">
+                    <button class="btn-main btn-secondary" id="btn-download-zip" onclick="downloadZip()" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                        <span id="ui-btn-download-zip">Download as ZIP</span>
                     </button>
                 </div>
             </div>
             
-            <!-- Logs -->
-            <h3 class="logs-header" id="ui-logs-title">Händelselogg</h3>
+            <h2 id="ui-logs-title" style="font-size: 1.1rem; margin-top: 20px;">Event Log</h2>
             <div class="logs-window" id="logsWindow"></div>
         </main>
+
+        <!-- Analytics Dashboard -->
+        <section id="dashboard">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <h2 id="ui-dash-title">Project Overview Dashboard</h2>
+                <div class="controls">
+                    <button class="icon-btn" onclick="exportCSV('runs')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span id="ui-btn-export-runs">Export Runs CSV</span>
+                    </button>
+                    <button class="icon-btn" onclick="exportCSV('holestages')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span id="ui-btn-export-rollup">Export Rollup CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="kpi-grid" id="kpi-container">
+                <!-- Injected via JS -->
+            </div>
+
+            <div class="chart-grid">
+                <div class="chart-container" id="chart-scatter"></div>
+                <div class="chart-container" id="chart-cumulative"></div>
+                <div class="chart-container" id="chart-bar"></div>
+                <div class="chart-container" id="chart-pie"></div>
+            </div>
+
+            <div class="card" style="padding: 0; overflow: hidden;">
+                <div style="padding: 20px; border-bottom: 1px solid var(--border);">
+                    <h3 id="ui-table-title">Hole-Stage Summary (Click row for details)</h3>
+                </div>
+                <div class="table-container">
+                    <table id="rollup-table">
+                        <thead>
+                            <tr>
+                                <th id="th-holestage">Hole-Stage</th>
+                                <th id="th-runs">Runs</th>
+                                <th id="th-vol">Total Vol (L)</th>
+                                <th id="th-volm">Vol/m (L/m)</th>
+                                <th id="th-peakp">Terminal P (bar)</th>
+                                <th id="th-time">Active Time</th>
+                                <th id="th-diff">Difficulty</th>
+                                <th id="th-status">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Run Detail Modal -->
+    <div class="modal-overlay" id="runModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Run Details</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;" id="modal-badges"></div>
+                <div class="modal-chart" id="modal-chart-time"></div>
+                <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                    <div class="modal-chart" id="modal-chart-pv" style="flex: 1; min-width: 300px;"></div>
+                    <div class="modal-chart" id="modal-chart-scatter" style="flex: 1; min-width: 300px;"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // --- State Management ---
-        let state = {
-            lang: 'sv',
-            theme: 'light',
-            filesToProcess: [],
-            processedFiles:[]
+        // ==========================================
+        // CONFIGURATION & CONSTANTS
+        // ==========================================
+        const CONFIG = {
+            ACTIVE_FLOW_THRESHOLD: 0.5,
+            VERY_LOW_FLOW_THRESHOLD: 0.5,
+            MIN_CONSECUTIVE_REFUSAL_POINTS: 3,
+            ZERO_TAKE_VOLUME_THRESHOLD: 0.5,
+            WEIGHTS: { duration: 0.15, volPerMeter: 0.2, refusal: 0.3, retry: 0.2, peakP: 0.15 }
         };
 
-        // --- Translations ---
-        const i18n = {
-            sv: {
-                title: "XML Date Formatter",
-                dropTitle: "Dra och släpp XML-filer här",
-                dropSub: "eller klicka på knappen nedan för att bläddra",
-                btnUpload: "Välj filer",
-                btnProcess: "Bearbeta Filer",
-                btnDownloadSingle: "Ladda ner",
-                btnDownloadMulti: "Ladda ner separat",
-                btnDownloadZip: "Ladda ner som ZIP",
-                logsTitle: "Händelselogg",
-                langToggle: "🇬🇧 English",
-                themeDark: "🌙 Mörkt",
-                themeLight: "☀️ Ljust",
-                statusWaiting: "Väntar på filer...",
-                statusReady: "Redo att bearbeta {0} fil(er).",
-                statusProcessing: "Bearbetar fil {0} av {1}...",
-                statusDone: "Klar! {0} fil(er) bearbetade.",
-                logInit: "System redo. Vänligen välj filer för att börja.",
-                logFilesSelected: "{0} XML-fil(er) inlästa. Redo för bearbetning.",
-                logStarted: "Startar bearbetning...",
-                logProcessed: "Klar: {0} -> {1}",
-                logError: "Fel vid bearbetning av {0}: {1}",
-                logFinished: "Alla filer har bearbetats framgångsrikt.",
-                logZipStart: "Skapar ZIP-arkiv...",
-                logZipDone: "ZIP-fil skapad och nedladdning startad.",
-                logDownloadStart: "Startar nedladdning...",
-                logDownloadDone: "Nedladdning slutförd.",
-                zipTooltip: "Detta alternativ stöds endast för flera filer.",
-                zipFilename: "Bearbetade_XML_Filer.zip"
+        // ==========================================
+        // STATE MANAGEMENT
+        // ==========================================
+        let state = {
+            lang: 'en',
+            theme: 'light',
+            filesToProcess:[],
+            processedFiles:[], // For _KLAR.xml downloads
+            analytics: {
+                runs:[],
+                points: [],
+                holeStages:[]
             },
+            currentModalRunId: null
+        };
+
+        // ==========================================
+        // i18n TRANSLATIONS
+        // ==========================================
+        const i18n = {
             en: {
-                title: "XML Date Formatter",
-                dropTitle: "Drag and drop XML files here",
-                dropSub: "or click the button below to browse",
-                btnUpload: "Choose files",
-                btnProcess: "Process Files",
-                btnDownloadSingle: "Download",
-                btnDownloadMulti: "Download Separately",
+                title: "Grout Analytics Pro",
+                dropTitle: "Drag & Drop XML Files",
+                dropSub: "or click to browse",
+                btnUpload: "Select Files",
+                btnProcess: "Process & Analyze",
+                btnDownloadSingle: "Download Formatted XML",
+                btnDownloadMulti: "Download Formatted Separately",
                 btnDownloadZip: "Download as ZIP",
                 logsTitle: "Event Log",
-                langToggle: "🇸🇪 Svenska",
-                themeDark: "🌙 Dark",
-                themeLight: "☀️ Light",
+                dashTitle: "Project Overview Dashboard",
+                tableTitle: "Hole-Stage Summary (Click row for details)",
                 statusWaiting: "Waiting for files...",
                 statusReady: "Ready to process {0} file(s).",
                 statusProcessing: "Processing file {0} of {1}...",
                 statusDone: "Done! {0} file(s) processed.",
-                logInit: "System ready. Please select files to begin.",
-                logFilesSelected: "{0} XML file(s) loaded. Ready to process.",
-                logStarted: "Starting processing...",
-                logProcessed: "Done: {0} -> {1}",
-                logError: "Error processing {0}: {1}",
-                logFinished: "All files processed successfully.",
-                logZipStart: "Generating ZIP archive...",
-                logZipDone: "ZIP file generated and download started.",
-                logDownloadStart: "Starting download...",
-                logDownloadDone: "Download completed.",
-                zipTooltip: "This option is only supported for multiple files.",
-                zipFilename: "Processed_XML_Files.zip"
+                zipTooltip: "Only supported for multiple files.",
+                zipFilename: "Formatted_XML_Files.zip",
+                kpiRuns: "Total Runs",
+                kpiHoles: "Hole-Stages",
+                kpiVol: "Total Volume (L)",
+                kpiTime: "Active Pumping (hrs)",
+                kpiRefusal: "Refusal Prone",
+                kpiZero: "Zero Take Runs",
+                classStable: "Productive Stable",
+                classUnstable: "Productive Unstable",
+                classRefusal: "Refusal Prone",
+                classPressure: "Pressure Limited",
+                classZero: "No Take",
+                classTest: "Test/Non-Prod",
+                btnExportRuns: "Export Runs CSV",
+                btnExportRollup: "Export Rollup CSV",
+                thHoleStage: "Hole-Stage",
+                thRuns: "Runs",
+                thVol: "Total Vol (L)",
+                thVolm: "Vol/m (L/m)",
+                thPeakp: "Terminal P (bar)",
+                thTime: "Active Time",
+                thDiff: "Difficulty",
+                thStatus: "Status",
+                langToggleText: "Svenska"
+            },
+            sv: {
+                title: "Injekteringsanalys Pro",
+                dropTitle: "Dra och släpp XML-filer",
+                dropSub: "eller klicka för att bläddra",
+                btnUpload: "Välj filer",
+                btnProcess: "Bearbeta & Analysera",
+                btnDownloadSingle: "Ladda ner formaterad XML",
+                btnDownloadMulti: "Ladda ner separat",
+                btnDownloadZip: "Ladda ner som ZIP",
+                logsTitle: "Händelselogg",
+                dashTitle: "Projektöversikt",
+                tableTitle: "Hål-Steg Sammanfattning (Klicka på rad för detaljer)",
+                statusWaiting: "Väntar på filer...",
+                statusReady: "Redo att bearbeta {0} fil(er).",
+                statusProcessing: "Bearbetar fil {0} av {1}...",
+                statusDone: "Klar! {0} fil(er) bearbetade.",
+                zipTooltip: "Stöds endast för flera filer.",
+                zipFilename: "Formaterade_XML_Filer.zip",
+                kpiRuns: "Totalt Antal Körningar",
+                kpiHoles: "Hål-Steg",
+                kpiVol: "Total Volym (L)",
+                kpiTime: "Aktiv Pumpning (tim)",
+                kpiRefusal: "Vägransbenägna",
+                kpiZero: "Noll-mottagning",
+                classStable: "Produktiv Stabil",
+                classUnstable: "Produktiv Instabil",
+                classRefusal: "Vägransbenägen",
+                classPressure: "Tryckbegränsad",
+                classZero: "Ingen Mottagning",
+                classTest: "Test/Ej Produktion",
+                btnExportRuns: "Exportera Körningar CSV",
+                btnExportRollup: "Exportera Sammanställning CSV",
+                thHoleStage: "Hål-Steg",
+                thRuns: "Körningar",
+                thVol: "Total Vol (L)",
+                thVolm: "Vol/m (L/m)",
+                thPeakp: "Sluttryck (bar)",
+                thTime: "Aktiv Tid",
+                thDiff: "Svårighetsgrad",
+                thStatus: "Status",
+                langToggleText: "English"
             }
         };
+        const t = (key) => i18n[state.lang][key] || key;
 
-        const t = (key) => i18n[state.lang][key];
-
-        // --- DOM Elements ---
+        // ==========================================
+        // DOM ELEMENTS
+        // ==========================================
         const els = {
             dropzone: document.getElementById('dropzone'),
             fileInput: document.getElementById('fileInput'),
@@ -458,28 +459,31 @@
             btnDownloadZip: document.getElementById('btn-download-zip'),
             zipTooltipWrapper: document.getElementById('zip-tooltip-wrapper'),
             logsWindow: document.getElementById('logsWindow'),
-            btnTheme: document.getElementById('btn-theme'),
-            btnLang: document.getElementById('btn-lang')
+            dashboard: document.getElementById('dashboard'),
+            modal: document.getElementById('runModal')
         };
 
-        // --- Initialization ---
+        // ==========================================
+        // INITIALIZATION & UI
+        // ==========================================
         function init() {
             updateTextUI();
-            log(t('logInit'), 'info');
+            log("System ready. Please select files to begin.", 'info');
             setupDragAndDrop();
         }
 
-        // --- UI & Theming ---
         function toggleTheme() {
             state.theme = state.theme === 'light' ? 'dark' : 'light';
             document.documentElement.setAttribute('data-theme', state.theme);
-            els.btnTheme.innerText = state.theme === 'light' ? t('themeDark') : t('themeLight');
+            document.getElementById('theme-text').innerText = state.theme === 'light' ? 'Dark' : 'Light';
+            if(state.analytics.runs.length > 0) renderDashboard(); // Re-render charts for theme
         }
 
         function toggleLanguage() {
-            state.lang = state.lang === 'sv' ? 'en' : 'sv';
+            state.lang = state.lang === 'en' ? 'sv' : 'en';
             updateTextUI();
             updateStateUI();
+            if(state.analytics.runs.length > 0) renderDashboard();
         }
 
         function updateTextUI() {
@@ -490,18 +494,26 @@
             document.getElementById('ui-btn-process').innerText = t('btnProcess');
             document.getElementById('ui-btn-download-zip').innerText = t('btnDownloadZip');
             document.getElementById('ui-logs-title').innerText = t('logsTitle');
+            document.getElementById('ui-dash-title').innerText = t('dashTitle');
+            document.getElementById('ui-table-title').innerText = t('tableTitle');
+            document.getElementById('ui-btn-export-runs').innerText = t('btnExportRuns');
+            document.getElementById('ui-btn-export-rollup').innerText = t('btnExportRollup');
             
-            els.btnLang.innerText = t('langToggle');
-            els.btnTheme.innerText = state.theme === 'light' ? t('themeDark') : t('themeLight');
+            document.getElementById('th-holestage').innerText = t('thHoleStage');
+            document.getElementById('th-runs').innerText = t('thRuns');
+            document.getElementById('th-vol').innerText = t('thVol');
+            document.getElementById('th-volm').innerText = t('thVolm');
+            document.getElementById('th-peakp').innerText = t('thPeakp');
+            document.getElementById('th-time').innerText = t('thTime');
+            document.getElementById('th-diff').innerText = t('thDiff');
+            document.getElementById('th-status').innerText = t('thStatus');
             
-            // Update dynamic texts based on state
+            document.getElementById('lang-text').innerText = t('langToggleText');
+            
             if (state.processedFiles.length > 0) {
                 document.getElementById('ui-btn-download-ind').innerText = state.processedFiles.length === 1 ? t('btnDownloadSingle') : t('btnDownloadMulti');
-                if (state.processedFiles.length === 1) {
-                    els.zipTooltipWrapper.setAttribute('data-tooltip', t('zipTooltip'));
-                } else {
-                    els.zipTooltipWrapper.removeAttribute('data-tooltip');
-                }
+                if (state.processedFiles.length === 1) els.zipTooltipWrapper.setAttribute('data-tooltip', t('zipTooltip'));
+                else els.zipTooltipWrapper.removeAttribute('data-tooltip');
             } else {
                 document.getElementById('ui-btn-download-ind').innerText = t('btnDownloadSingle');
             }
@@ -514,33 +526,23 @@
                 els.btnDownloadInd.disabled = true;
                 els.btnDownloadZip.disabled = true;
                 els.progressBar.style.width = '0%';
-                els.zipTooltipWrapper.removeAttribute('data-tooltip');
+                els.dashboard.style.display = 'none';
             } else if (state.processedFiles.length === state.filesToProcess.length) {
                 els.statusText.innerText = t('statusDone').replace('{0}', state.processedFiles.length);
                 els.btnProcess.disabled = true;
                 els.btnDownloadInd.disabled = false;
-                
-                // Logic for 1 vs multiple files
-                if (state.processedFiles.length === 1) {
-                    document.getElementById('ui-btn-download-ind').innerText = t('btnDownloadSingle');
-                    els.btnDownloadZip.disabled = true;
-                    els.zipTooltipWrapper.setAttribute('data-tooltip', t('zipTooltip'));
-                } else {
-                    document.getElementById('ui-btn-download-ind').innerText = t('btnDownloadMulti');
-                    els.btnDownloadZip.disabled = false;
-                    els.zipTooltipWrapper.removeAttribute('data-tooltip');
-                }
+                els.btnDownloadZip.disabled = state.processedFiles.length === 1;
+                els.dashboard.style.display = 'block';
             } else {
                 els.statusText.innerText = t('statusReady').replace('{0}', state.filesToProcess.length);
                 els.btnProcess.disabled = false;
                 els.btnDownloadInd.disabled = true;
                 els.btnDownloadZip.disabled = true;
                 els.progressBar.style.width = '0%';
-                els.zipTooltipWrapper.removeAttribute('data-tooltip');
+                els.dashboard.style.display = 'none';
             }
         }
 
-        // --- Logging ---
         function log(msg, type = 'info') {
             const time = new Date().toLocaleTimeString('sv-SE', { hour12: false });
             const entry = document.createElement('div');
@@ -550,149 +552,591 @@
             els.logsWindow.scrollTop = els.logsWindow.scrollHeight;
         }
 
-        // --- File Handling ---
+        // ==========================================
+        // HELPER FUNCTIONS
+        // ==========================================
+        function safeParseFloat(val, fallback = 0) {
+            if (val === null || val === undefined || val === '') return fallback;
+            if (typeof val === 'string') val = val.replace(',', '.');
+            const parsed = parseFloat(val);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        }
+
+        function quantile(arr, q) {
+            if (arr.length === 0) return 0;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const pos = (sorted.length - 1) * q;
+            const base = Math.floor(pos);
+            const rest = pos - base;
+            if (sorted[base + 1] !== undefined) {
+                return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+            } else {
+                return sorted[base];
+            }
+        }
+
+        // ==========================================
+        // FILE HANDLING
+        // ==========================================
         function setupDragAndDrop() {
-            els.dropzone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                els.dropzone.classList.add('dragover');
-            });
-
-            els.dropzone.addEventListener('dragleave', () => {
-                els.dropzone.classList.remove('dragover');
-            });
-
+            els.dropzone.addEventListener('click', () => els.fileInput.click());
+            els.dropzone.addEventListener('dragover', (e) => { e.preventDefault(); els.dropzone.classList.add('dragover'); });
+            els.dropzone.addEventListener('dragleave', () => els.dropzone.classList.remove('dragover'));
             els.dropzone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                els.dropzone.classList.remove('dragover');
+                e.preventDefault(); els.dropzone.classList.remove('dragover');
                 handleFiles(e.dataTransfer.files);
             });
-
             els.fileInput.addEventListener('change', (e) => {
                 handleFiles(e.target.files);
-                els.fileInput.value = ''; // Reset input
+                els.fileInput.value = ''; 
             });
         }
 
         function handleFiles(fileList) {
             const xmlFiles = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.xml'));
-            
             if (xmlFiles.length === 0) {
-                log(t('logError').replace('{0}', 'Upload').replace('{1}', 'No XML files found.'), 'error');
+                log("No XML files found.", 'error');
                 return;
             }
-
-            // Reset state for new batch
             state.filesToProcess = xmlFiles;
-            state.processedFiles =[];
-            
-            log(t('logFilesSelected').replace('{0}', xmlFiles.length), 'info');
+            state.processedFiles = [];
+            state.analytics = { runs: [], points: [], holeStages:[] };
+            log(`${xmlFiles.length} XML file(s) loaded. Ready.`, 'info');
             updateStateUI();
         }
 
-        // --- Core Processing Logic ---
+        // ==========================================
+        // CORE PIPELINE: FORMATTER + PARSER + ANALYTICS
+        // ==========================================
         async function processFiles() {
             els.btnProcess.disabled = true;
-            log(t('logStarted'), 'info');
-            state.processedFiles =[];
+            log("Starting processing pipeline...", 'info');
             
+            let allRawText = "";
+
             for (let i = 0; i < state.filesToProcess.length; i++) {
                 let file = state.filesToProcess[i];
                 els.statusText.innerText = t('statusProcessing').replace('{0}', i + 1).replace('{1}', state.filesToProcess.length);
                 
                 try {
-                    // Read file content
                     let content = await file.text();
                     
-                    // Regex 1: Replace DATE="DD.MM.YYYY" with DATE="YYYY-MM-DD"
+                    // 1. Legacy Formatter (Regex Date Fix) - Backward Compatibility
                     let updatedContent = content.replace(/DATE="(\d{2})\.(\d{2})\.(\d{4})"/g, 'DATE="$3-$2-$1"');
-                    
-                    // Regex 2: Fix double quotes DATE="YYYY-MM-DD"" to DATE="YYYY-MM-DD"
                     updatedContent = updatedContent.replace(/DATE="(\d{4}-\d{2}-\d{2})""/g, 'DATE="$1"');
-                    
-                    // Generate new filename
                     let newFileName = file.name.replace(/\.xml$/i, "_KLAR.xml");
-                    
                     state.processedFiles.push({ name: newFileName, content: updatedContent });
-                    log(t('logProcessed').replace('{0}', file.name).replace('{1}', newFileName), 'success');
+                    
+                    // Append to global text for analytics parser
+                    allRawText += updatedContent + "\n";
                     
                 } catch (err) {
-                    log(t('logError').replace('{0}', file.name).replace('{1}', err.message), 'error');
+                    log(`Error reading ${file.name}: ${err.message}`, 'error');
                 }
                 
-                // Update Progress
-                let percent = ((i + 1) / state.filesToProcess.length) * 100;
-                els.progressBar.style.width = `${percent}%`;
-                
-                // Small delay to allow UI to breathe
-                await new Promise(r => setTimeout(r, 10));
+                els.progressBar.style.width = `${((i + 1) / state.filesToProcess.length) * 100}%`;
+                await new Promise(r => setTimeout(r, 10)); // UI breathe
             }
             
-            log(t('logFinished'), 'success');
+            log("Formatting complete. Starting data analytics parser...", 'info');
+            
+            // 2. Parse XML for Analytics
+            parsePumpLog(allRawText);
+            
+            // 3. Compute Metrics
+            computeRunMetrics();
+            computeHoleStageRollups();
+            
+            log("Analytics pipeline complete.", 'success');
             updateStateUI();
+            renderDashboard();
         }
 
-        // --- Download Logic ---
-        async function downloadIndividually() {
-            log(t('logDownloadStart'), 'info');
+        // ==========================================
+        // XML PARSER (STATE MACHINE)
+        // ==========================================
+        function parseAttributes(attrStr) {
+            const attrs = {};
+            const regex = /([A-Z0-9_]+)="([^"]*)"/g;
+            let match;
+            while ((match = regex.exec(attrStr)) !== null) {
+                attrs[match[1]] = match[2];
+            }
+            return attrs;
+        }
+
+        function parsePumpLog(text) {
+            const tagRegex = /<(header|data|footer)\s+([^>]+)\/?>/gi;
+            let match;
             
+            let currentRunByChannel = {};
+            let runCounter = 0;
+
+            while ((match = tagRegex.exec(text)) !== null) {
+                const tagType = match[1].toLowerCase();
+                const attrs = parseAttributes(match[2]);
+                const ch = attrs.CH || "0";
+
+                if (tagType === 'header') {
+                    // If a run is already open for this channel, close it forcefully
+                    if (currentRunByChannel[ch]) {
+                        log(`Warning: Orphaned run closed on CH ${ch}`, 'warning');
+                        state.analytics.runs.push(currentRunByChannel[ch]);
+                    }
+                    
+                    runCounter++;
+                    const holeRaw = attrs.HOLE || "Unknown";
+                    const stage = attrs.STAGE || "1";
+                    
+                    currentRunByChannel[ch] = {
+                        runId: `R${runCounter}`,
+                        channel: ch,
+                        date: attrs.DATE,
+                        time: attrs.TIME,
+                        jobsite: attrs.JOBSITE || "",
+                        grp1: attrs.GRP1 || "",
+                        mixRaw: attrs.MIX || "",
+                        holeRaw: holeRaw,
+                        holeNorm: holeRaw.toLowerCase().trim(),
+                        stage: stage,
+                        holeStageKey: `${holeRaw.toLowerCase().trim()}_S${stage}`,
+                        lengthM: safeParseFloat(attrs.LENGTH, 1),
+                        sampleIntervalS: safeParseFloat(attrs.SAMP, 5),
+                        points:[],
+                        footer: null
+                    };
+                } 
+                else if (tagType === 'data') {
+                    if (currentRunByChannel[ch]) {
+                        currentRunByChannel[ch].points.push({
+                            runId: currentRunByChannel[ch].runId,
+                            p: safeParseFloat(attrs.P, 0),
+                            q: safeParseFloat(attrs.Q, 0),
+                            v: safeParseFloat(attrs.V, 0)
+                        });
+                    }
+                } 
+                else if (tagType === 'footer') {
+                    if (currentRunByChannel[ch]) {
+                        currentRunByChannel[ch].footer = attrs;
+                        state.analytics.runs.push(currentRunByChannel[ch]);
+                        currentRunByChannel[ch] = null;
+                    }
+                }
+            }
+            
+            // Cleanup any left open runs
+            for (let ch in currentRunByChannel) {
+                if (currentRunByChannel[ch]) {
+                    state.analytics.runs.push(currentRunByChannel[ch]);
+                }
+            }
+        }
+
+        // ==========================================
+        // ANALYTICS ENGINE
+        // ==========================================
+        function computeRunMetrics() {
+            state.analytics.runs.forEach(run => {
+                const pts = run.points;
+                run.pointCount = pts.length;
+                
+                // Metadata flags
+                run.isTestLike = run.grp1.toLowerCase().includes('test') || run.holeNorm.includes('test');
+                
+                if (pts.length === 0) {
+                    run.isZeroTake = true;
+                    run.totalVolume = 0;
+                    run.pMax = 0; run.qMax = 0; run.totalDurationS = 0;
+                    run.terminalPressure = 0;
+                    run.classification = 'no_take';
+                    return;
+                }
+
+                let pArr = [], qArr =[], vArr =[];
+                let activeTime = 0, holdTime = 0;
+                
+                pts.forEach((pt, idx) => {
+                    pt.elapsedS = idx * run.sampleIntervalS;
+                    pArr.push(pt.p);
+                    qArr.push(pt.q);
+                    vArr.push(pt.v);
+                });
+
+                run.pMax = Math.max(...pArr);
+                run.pMean = pArr.reduce((a,b)=>a+b,0) / pts.length;
+                run.qMax = Math.max(...qArr);
+                run.qMean = qArr.reduce((a,b)=>a+b,0) / pts.length;
+                
+                // Smarter Refusal/Hold Detection
+                const p75 = quantile(pArr, 0.75);
+                const highPThresh = Math.max(p75, 0.55 * run.pMax);
+
+                pts.forEach((pt, idx) => {
+                    // Time accumulation by interval
+                    let interval = (idx === 0) ? 0 : run.sampleIntervalS;
+                    
+                    pt.isActiveFlow = pt.q > CONFIG.ACTIVE_FLOW_THRESHOLD;
+                    if (pt.isActiveFlow) activeTime += interval;
+                    
+                    pt.isHold = (pt.q <= CONFIG.VERY_LOW_FLOW_THRESHOLD) && (pt.p >= highPThresh);
+                    if (pt.isHold) holdTime += interval;
+                    
+                    state.analytics.points.push(pt);
+                });
+
+                run.activePumpingTimeS = activeTime;
+                run.holdTimeS = holdTime;
+                
+                // Footer overrides if exist (Primary Truth)
+                const fallbackDuration = Math.max(0, (pts.length - 1) * run.sampleIntervalS);
+                const fallbackVolume = Math.max(...vArr) - Math.min(...vArr);
+                const fallbackTerminalP = pts[pts.length - 1].p;
+
+                if (run.footer) {
+                    run.totalDurationS = safeParseFloat(run.footer.DURA, fallbackDuration);
+                    run.totalVolume = safeParseFloat(run.footer.VEND, fallbackVolume);
+                    run.terminalPressure = safeParseFloat(run.footer.PEND, fallbackTerminalP);
+                    run.footerLuge = safeParseFloat(run.footer.LUGE, 0);
+                    run.stopReason = run.footer.REASON || "Unknown";
+                } else {
+                    run.totalDurationS = fallbackDuration;
+                    run.totalVolume = fallbackVolume;
+                    run.terminalPressure = fallbackTerminalP;
+                    run.footerLuge = 0;
+                    run.stopReason = "No Footer";
+                }
+
+                run.isZeroTake = run.totalVolume < CONFIG.ZERO_TAKE_VOLUME_THRESHOLD;
+                run.refusalIndex = run.totalDurationS > 0 ? holdTime / run.totalDurationS : 0;
+
+                // Classification Logic
+                const reasonLower = run.stopReason.toLowerCase();
+                if (run.isTestLike) run.classification = 'test_or_nonproduction';
+                else if (run.isZeroTake) run.classification = 'no_take';
+                else if (reasonLower.includes('pressure')) run.classification = 'pressure_limited';
+                else if (run.refusalIndex > 0.3) run.classification = 'refusal_prone';
+                else if (run.totalDurationS > 0 && (run.activePumpingTimeS / run.totalDurationS) < 0.5) run.classification = 'productive_unstable';
+                else run.classification = 'productive_stable';
+            });
+        }
+
+        function computeHoleStageRollups() {
+            const map = {};
+            
+            state.analytics.runs.forEach(run => {
+                if (run.isTestLike) return; // Exclude tests from rollups
+                
+                const key = run.holeStageKey;
+                if (!map[key]) {
+                    map[key] = {
+                        holeStageKey: key,
+                        holeRaw: run.holeRaw,
+                        stage: run.stage,
+                        runCount: 0,
+                        totalVolume: 0,
+                        totalDurationS: 0,
+                        activeTimeS: 0,
+                        holdTimeS: 0,
+                        peakPressure: 0,
+                        lugeSum: 0,
+                        refusalSum: 0,
+                        stopReasons: {},
+                        runs: []
+                    };
+                }
+                
+                let hs = map[key];
+                hs.runs.push(run);
+                hs.runCount++;
+                hs.totalVolume += run.totalVolume;
+                hs.totalDurationS += run.totalDurationS;
+                hs.activeTimeS += run.activePumpingTimeS;
+                hs.holdTimeS += run.holdTimeS;
+                if (run.pMax > hs.peakPressure) hs.peakPressure = run.pMax;
+                hs.lugeSum += run.footerLuge;
+                hs.refusalSum += run.refusalIndex;
+                
+                hs.stopReasons[run.stopReason] = (hs.stopReasons[run.stopReason] || 0) + 1;
+            });
+
+            state.analytics.holeStages = Object.values(map).map(hs => {
+                hs.retryCount = hs.runCount - 1;
+                hs.meanFooterLuge = hs.lugeSum / hs.runCount;
+                hs.weightedRefusalIndex = hs.refusalSum / hs.runCount;
+                
+                // Use real LENGTH from runs (max valid length found)
+                hs.lengthM = Math.max(...hs.runs.map(r => r.lengthM)) || 1;
+                hs.volumePerMeterTotal = hs.totalVolume / hs.lengthM;
+                
+                // Terminal pressure max across runs
+                hs.terminalPressureMax = Math.max(...hs.runs.map(r => r.terminalPressure));
+                
+                // Dominant stop reason
+                hs.dominantStopReason = Object.keys(hs.stopReasons).reduce((a, b) => hs.stopReasons[a] > hs.stopReasons[b] ? a : b, "Unknown");
+                
+                // Difficulty Score (0-100)
+                let normDur = Math.min(hs.totalDurationS / 3600, 1); // max 1 hour
+                let normVol = Math.min(hs.volumePerMeterTotal / 500, 1); // max 500 L/m
+                let normRetry = Math.min(hs.retryCount / 5, 1); // max 5 retries
+                let normPeakP = Math.min(hs.terminalPressureMax / 40, 1); // max 40 bar terminal
+                
+                hs.overallDifficultyScore = (
+                    (normDur * CONFIG.WEIGHTS.duration) +
+                    (normVol * CONFIG.WEIGHTS.volPerMeter) +
+                    (hs.weightedRefusalIndex * CONFIG.WEIGHTS.refusal) +
+                    (normRetry * CONFIG.WEIGHTS.retry) +
+                    (normPeakP * CONFIG.WEIGHTS.peakP)
+                ) * 100;
+
+                // Overall Status
+                if (hs.overallDifficultyScore > 60) hs.status = 'bad';
+                else if (hs.overallDifficultyScore > 30 || hs.retryCount > 1) hs.status = 'warn';
+                else hs.status = 'good';
+
+                return hs;
+            });
+            
+            // Sort by difficulty descending
+            state.analytics.holeStages.sort((a, b) => b.overallDifficultyScore - a.overallDifficultyScore);
+        }
+
+        // ==========================================
+        // VISUALIZATION ENGINE (PLOTLY)
+        // ==========================================
+        function getPlotlyLayout(title, xAxis, yAxis) {
+            const isDark = state.theme === 'dark';
+            const fontColor = isDark ? '#f5f5f7' : '#1d1d1f';
+            const gridColor = isDark ? '#38383a' : '#e5e5ea';
+            
+            return {
+                title: { text: title, font: { color: fontColor, family: 'SF Pro Text, sans-serif' } },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: fontColor },
+                xaxis: { title: xAxis, gridcolor: gridColor, zerolinecolor: gridColor },
+                yaxis: { title: yAxis, gridcolor: gridColor, zerolinecolor: gridColor },
+                margin: { t: 40, r: 20, b: 40, l: 50 }
+            };
+        }
+
+        function renderDashboard() {
+            const runs = state.analytics.runs.filter(r => !r.isTestLike);
+            const hs = state.analytics.holeStages;
+            
+            // 1. KPI Cards
+            const totalVol = runs.reduce((sum, r) => sum + r.totalVolume, 0);
+            const totalActiveTime = runs.reduce((sum, r) => sum + r.activePumpingTimeS, 0) / 3600;
+            const refusalCount = runs.filter(r => r.classification === 'refusal_prone' || r.classification === 'pressure_limited').length;
+            const zeroCount = runs.filter(r => r.isZeroTake).length;
+
+            document.getElementById('kpi-container').innerHTML = `
+                <div class="kpi-card"><div class="kpi-value">${runs.length}</div><div class="kpi-label">${t('kpiRuns')}</div></div>
+                <div class="kpi-card"><div class="kpi-value">${hs.length}</div><div class="kpi-label">${t('kpiHoles')}</div></div>
+                <div class="kpi-card"><div class="kpi-value">${totalVol.toFixed(0)}</div><div class="kpi-label">${t('kpiVol')}</div></div>
+                <div class="kpi-card"><div class="kpi-value">${totalActiveTime.toFixed(1)}</div><div class="kpi-label">${t('kpiTime')}</div></div>
+                <div class="kpi-card"><div class="kpi-value" style="color:var(--error)">${refusalCount}</div><div class="kpi-label">${t('kpiRefusal')}</div></div>
+                <div class="kpi-card"><div class="kpi-value" style="color:var(--warning)">${zeroCount}</div><div class="kpi-label">${t('kpiZero')}</div></div>
+            `;
+
+            // 2. Scatter Plot (Vol/m vs Terminal P)
+            const scatterData =[{
+                x: hs.map(h => h.volumePerMeterTotal),
+                y: hs.map(h => h.terminalPressureMax),
+                text: hs.map(h => `${h.holeStageKey}<br>Diff: ${h.overallDifficultyScore.toFixed(1)}`),
+                mode: 'markers',
+                marker: {
+                    size: hs.map(h => Math.max(10, Math.min(h.totalDurationS / 100, 40))),
+                    color: hs.map(h => h.overallDifficultyScore),
+                    colorscale: 'RdYlGn',
+                    reversescale: true,
+                    showscale: true
+                }
+            }];
+            Plotly.newPlot('chart-scatter', scatterData, getPlotlyLayout('Volume vs Terminal Pressure (Bubble=Duration)', 'Volume/m (L/m)', 'Terminal Pressure (bar)'), {responsive: true});
+
+            // 3. Cumulative Volume Curve
+            let cumVol = 0;
+            const cumVolData =[{
+                x: runs.map((_, i) => i + 1),
+                y: runs.map(r => { cumVol += r.totalVolume; return cumVol; }),
+                type: 'scatter', mode: 'lines', line: { color: '#0071e3', width: 3 }, fill: 'tozeroy'
+            }];
+            Plotly.newPlot('chart-cumulative', cumVolData, getPlotlyLayout('Cumulative Injected Volume', 'Run Sequence', 'Total Volume (L)'), {responsive: true});
+
+            // 4. Ranked Bar Chart (Difficulty)
+            const topHs = hs.slice(0, 10).reverse();
+            const barData =[{
+                y: topHs.map(h => h.holeStageKey),
+                x: topHs.map(h => h.overallDifficultyScore),
+                type: 'bar', orientation: 'h', marker: { color: '#ff3b30' }
+            }];
+            Plotly.newPlot('chart-bar', barData, getPlotlyLayout('Top 10 Difficult Hole-Stages', 'Difficulty Score (0-100)', ''), {responsive: true});
+
+            // 5. Stop Reason Pie
+            const reasons = {};
+            runs.forEach(r => { reasons[r.stopReason] = (reasons[r.stopReason] || 0) + 1; });
+            const pieData =[{
+                labels: Object.keys(reasons),
+                values: Object.values(reasons),
+                type: 'pie', hole: 0.4, marker: { colors:['#0071e3', '#34c759', '#ff9f0a', '#ff3b30', '#af52de'] }
+            }];
+            let pieLayout = getPlotlyLayout('Stop Reasons', '', '');
+            pieLayout.xaxis = undefined; pieLayout.yaxis = undefined;
+            Plotly.newPlot('chart-pie', pieData, pieLayout, {responsive: true});
+
+            // 6. Table
+            const tbody = document.querySelector('#rollup-table tbody');
+            tbody.innerHTML = '';
+            hs.forEach(h => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => openRunModal(h.holeStageKey);
+                let badgeText = h.status === 'good' ? 'Stable' : (h.status === 'warn' ? 'Review' : 'Difficult');
+                tr.innerHTML = `
+                    <td><strong>${h.holeStageKey}</strong></td>
+                    <td>${h.runCount}</td>
+                    <td>${h.totalVolume.toFixed(1)}</td>
+                    <td>${h.volumePerMeterTotal.toFixed(1)}</td>
+                    <td>${h.terminalPressureMax.toFixed(1)}</td>
+                    <td>${(h.activeTimeS/60).toFixed(1)} min</td>
+                    <td>
+                        <div style="width: 100%; background: var(--border); height: 6px; border-radius: 3px;">
+                            <div style="width: ${h.overallDifficultyScore}%; background: ${h.status==='bad'?'var(--error)':(h.status==='warn'?'var(--warning)':'var(--success)')}; height: 100%; border-radius: 3px;"></div>
+                        </div>
+                    </td>
+                    <td><span class="badge ${h.status}">${badgeText}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ==========================================
+        // MODAL & RUN DETAILS
+        // ==========================================
+        function openRunModal(holeStageKey) {
+            const runs = state.analytics.runs.filter(r => r.holeStageKey === holeStageKey);
+            if(runs.length === 0) return;
+            
+            // Show the longest run in this hole-stage
+            const run = runs.reduce((prev, current) => (prev.totalDurationS > current.totalDurationS) ? prev : current);
+            
+            document.getElementById('modal-title').innerText = `Run Details: ${run.runId} (${holeStageKey})`;
+            
+            const badges = document.getElementById('modal-badges');
+            badges.innerHTML = `
+                <span class="badge good">Vol: ${run.totalVolume.toFixed(1)} L</span>
+                <span class="badge warn">Terminal P: ${run.terminalPressure.toFixed(1)} bar</span>
+                <span class="badge bad">Stop: ${run.stopReason}</span>
+                <span class="badge" style="background:var(--border); color:var(--text-main)">Class: ${t('class' + run.classification.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')) || run.classification}</span>
+            `;
+
+            const pts = run.points;
+            const time = pts.map(p => p.elapsedS);
+            
+            // Chart 1: P & Q vs Time
+            const traceP = { x: time, y: pts.map(p => p.p), name: 'Pressure (bar)', type: 'scatter', line: {color: '#ff3b30'} };
+            const traceQ = { x: time, y: pts.map(p => p.q), name: 'Flow (L/min)', type: 'scatter', yaxis: 'y2', line: {color: '#0071e3'} };
+            const layoutTime = getPlotlyLayout('Pressure & Flow vs Time', 'Time (s)', 'Pressure (bar)');
+            layoutTime.yaxis2 = { title: 'Flow (L/min)', overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' };
+            Plotly.newPlot('modal-chart-time', [traceP, traceQ], layoutTime, {responsive: true});
+
+            // Chart 2: P vs V
+            const tracePV = { x: pts.map(p => p.v), y: pts.map(p => p.p), type: 'scatter', mode: 'lines', line: {color: '#af52de'} };
+            Plotly.newPlot('modal-chart-pv', [tracePV], getPlotlyLayout('Pressure vs Cumulative Volume', 'Volume (L)', 'Pressure (bar)'), {responsive: true});
+
+            // Chart 3: Q vs P Scatter
+            const traceScatter = { 
+                x: pts.map(p => p.p), y: pts.map(p => p.q), type: 'scatter', mode: 'markers',
+                marker: { color: time, colorscale: 'Viridis', showscale: true, size: 6 }
+            };
+            Plotly.newPlot('modal-chart-scatter',[traceScatter], getPlotlyLayout('Flow vs Pressure (Color=Time)', 'Pressure (bar)', 'Flow (L/min)'), {responsive: true});
+
+            els.modal.classList.add('active');
+        }
+
+        function closeModal() {
+            els.modal.classList.remove('active');
+        }
+
+        // ==========================================
+        // CSV EXPORT
+        // ==========================================
+        function exportCSV(type) {
+            let data =[];
+            let filename = "";
+            
+            if (type === 'runs') {
+                data = state.analytics.runs.map(r => ({
+                    RunID: r.runId, HoleStage: r.holeStageKey, Date: r.date, Time: r.time,
+                    TotalVolume: r.totalVolume.toFixed(2), TerminalPressure: r.terminalPressure.toFixed(2),
+                    DurationS: r.totalDurationS, StopReason: r.stopReason, Classification: r.classification
+                }));
+                filename = "runs_summary.csv";
+            } else if (type === 'holestages') {
+                data = state.analytics.holeStages.map(h => ({
+                    HoleStage: h.holeStageKey, Runs: h.runCount, TotalVolume: h.totalVolume.toFixed(2),
+                    TerminalPressureMax: h.terminalPressureMax.toFixed(2), DifficultyScore: h.overallDifficultyScore.toFixed(2),
+                    DominantStopReason: h.dominantStopReason
+                }));
+                filename = "hole_stage_summary.csv";
+            }
+
+            if(data.length === 0) return;
+
+            const headers = Object.keys(data[0]);
+            const csvRows =[headers.join(',')];
+            
+            data.forEach(row => {
+                csvRows.push(headers.map(h => `"${row[h]}"`).join(','));
+            });
+
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ==========================================
+        // LEGACY DOWNLOAD LOGIC (_KLAR.xml)
+        // ==========================================
+        async function downloadIndividually() {
             for (let i = 0; i < state.processedFiles.length; i++) {
                 let pf = state.processedFiles[i];
                 const blob = new Blob([pf.content], { type: "application/xml" });
                 const url = URL.createObjectURL(blob);
-                
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = pf.name;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                
-                // Clean up memory
+                a.href = url; a.download = pf.name;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
-                
-                // Delay to prevent browser blocking multiple downloads
-                if (state.processedFiles.length > 1) {
-                    await new Promise(r => setTimeout(r, 400));
-                }
+                if (state.processedFiles.length > 1) await new Promise(r => setTimeout(r, 400));
             }
-            log(t('logDownloadDone'), 'success');
         }
 
         async function downloadZip() {
-            if (typeof JSZip === 'undefined') {
-                log("JSZip library not loaded. Check internet connection.", "error");
-                return;
-            }
-            
-            log(t('logZipStart'), 'info');
-            els.btnDownloadZip.disabled = true; // Prevent double clicks
-            
+            if (typeof JSZip === 'undefined') return;
+            els.btnDownloadZip.disabled = true;
             try {
                 const zip = new JSZip();
-                state.processedFiles.forEach(pf => {
-                    zip.file(pf.name, pf.content);
-                });
-                
+                state.processedFiles.forEach(pf => zip.file(pf.name, pf.content));
                 const blob = await zip.generateAsync({ type: "blob" });
                 const url = URL.createObjectURL(blob);
-                
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = t('zipFilename');
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                
+                a.href = url; a.download = t('zipFilename');
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
-                log(t('logZipDone'), 'success');
             } catch (err) {
-                log(t('logError').replace('{0}', 'ZIP').replace('{1}', err.message), 'error');
+                log(`ZIP Error: ${err.message}`, 'error');
             } finally {
                 els.btnDownloadZip.disabled = false;
             }
         }
 
-        // Boot up
+        // Boot
         init();
     </script>
 </body>
